@@ -1,0 +1,19 @@
+h1 {
+  background-color: red;
+}
+
+.flexbox-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.main-container {
+  display: grid;
+  place-content: center;
+}
+
+table,
+td,
+th {
+  border: 1px solid black;
+}
