@@ -3,24 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Doofo</title>
+    <title>yo</title>
     <link rel="stylesheet" href="style.css" />
     <script src="functions.js"></script>
   </head>
   <body>
-    <div class="main-container">
-      <div>
+    <div class="grid-center">
+      <h1>Dart Tavla</h1>
+      <div class="flexbox-row center">
         <button onclick="addPlayer()">Add player</button>
         <button onclick="addRow()">Add row</button>
-        <button>Clear scores</button>
+        <button onclick="clearScores()">Clear scores</button>
         <button>Reset all</button>
       </div>
       <div id="playerContainer" class="playerContainer">
         <table>
           <thead id="tableHead"></thead>
           <tbody id="tableBody"></tbody>
+          <tfoot id="tableFooter">
+            <tr id="tableFooterRow"></tr>
+          </tfoot>
         </table>
       </div>
     </div>
   </body>
+  <script>
+    addPlayer();
+    addRow();
+  </script>
 </html>
