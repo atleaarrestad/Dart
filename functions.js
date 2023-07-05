@@ -1,31 +1,33 @@
 let playercount = 0;
-let goal = 250;
-let rows = new Array();
+let goal = 0;
+let rows = [];
 let players = [];
 
 function addPlayer() {
-  let head = document.querySelector("#tableHeadRow");
-  let footer = document.querySelector("#tableFooterRow");
-  let body = document.querySelector("#tableBody");
+  let tableHeader = document.querySelector("#tableHeadRow");
+  let tableFooter = document.querySelector("#tableFooterRow");
+  let tableBody = document.querySelector("#tableBody");
   let playerID = crypto.randomUUID();
   players.push(playerID);
 
-  newPlayer = document.createElement("th");
-  inputName = document.createElement("input");
-  button = document.createElement("button");
+  playerHeader = document.createElement("th");
+  playerInput = document.createElement("input");
+  headerButton = document.createElement("button");
 
-  inputName.type = "text";
-  inputName.placeholder = `Player ${playercount + 1}`;
+  playerInput.type = "text";
+  playerInput.placeholder = `Player ${playercount + 1}`;
+  playerInput.classList.add("won");
 
-  button.textContent = "X";
-  button.classList.add("removePlayerButton");
-  button.addEventListener("click", removePlayerHandler);
-  button["data-player"] = playerID;
+  headerButton.textContent = "X";
+  headerButton.classList.add("removePlayerButton");
+  headerButton.addEventListener("click", removePlayerHandler);
+  headerButton["data-player"] = playerID;
+  headerButton.tabIndex = -1;
 
-  newPlayer.appendChild(inputName);
-  newPlayer.appendChild(button);
-  newPlayer["data-player"] = playerID;
-  head.appendChild(newPlayer);
+  playerHeader.appendChild(playerInput);
+  playerHeader.appendChild(headerButton);
+
+  tableHeader.appendChild(playerHeader);
 
   //Add missing column cells if game is already started
   if (rows.length > 0) {
@@ -33,14 +35,14 @@ function addPlayer() {
       let cell = createTableCellWithInput();
       cell.children[0]["data-player"] = playerID;
       cell.children[0]["data-row"] = i;
-      body.children[i].appendChild(cell);
+      tableBody.children[i].appendChild(cell);
       rows[i].appendChild(cell);
     }
   }
 
   let footerCell = createTableCellFooter();
-  footerCell["data-player"] = playerID;
-  footer.appendChild(footerCell);
+  footerCell.tabIndex = -1;
+  tableFooter.appendChild(footerCell);
   calculateSum(getPlayerIndexFromID(playerID));
 
   playercount += 1;
@@ -74,6 +76,7 @@ function createTableCellWithInput() {
       addRow();
     }
   });
+  input.addEventListener("keypress", (e) => inputEnterKeyHandler(e));
   cell.append(input);
   return cell;
 }
@@ -113,70 +116,69 @@ const calculateSumAllPlayers = () => {
 const isNewRowNeeded = (rowIndex) => {
   return rowIndex + 1 >= rows.length;
 };
-const clearScores = () => {
-  rows.forEach((row) => {
-    for (let i = 0; i < players.length; i++) {
-      row[i].removeChild(row[i].children[0]);
-      row[i].removeChild(row[i].children[1]);
-      row[i].parentElement.removeChild(row[i]);
-    }
-  });
-  rows = [];
+function clearScores() {
+  let tableBody = document.querySelector("#tableBody");
+  let tableRows = tableBody.rows;
+  for (let i = tableRows.length - 1; i >= 0; i--) {
+    tableRows[i].remove();
+  }
+
+  rows.length = 0;
 
   addRow();
   calculateSumAllPlayers();
-};
+  tableBody.rows[0].children[0].children[0].focus();
+}
 
 removePlayerHandler = (e) => {
   index = getPlayerIndexFromID(e.target["data-player"]);
-  removeColumn(e.target["data-player"]);
+  removeColumn(index);
 };
-const removePlayer = (playerIndex) => {
-  removeColumn(playerIndex);
-};
-const removeColumn = (playerID) => {
-  console.log(players);
-  console.log(playerID);
+
+const removeColumn = (playerIndex) => {
   let tableBody = document.querySelector("#tableBody");
-
-  // remove columns
-  let rows = tableBody.rows;
-  for (let row of rows) {
-    for (let i = 0; i < row.children.length; i++) {
-      let child = row.children[i];
-      if (child.children[0]["data-player"] === playerID) {
-        row.removeChild(child);
-        break;
-      }
-    }
-  }
-
-  // remove footer
   let footer = document.querySelector("#tableFooterRow");
-
-  for (let i = 0; i < footer.children.length; i++) {
-    let child = footer.children[i];
-    if (child["data-player"] === playerID) {
-      footer.removeChild(child);
-      break;
-    }
-  }
-
-  // remove header
   let header = document.querySelector("#tableHeadRow");
 
-  for (let i = 0; i < header.children.length; i++) {
-    let child = header.children[i];
-    if (child["data-player"] === playerID) {
-      header.removeChild(child);
-      break;
-    }
+  footer.deleteCell(playerIndex);
+  header.deleteCell(playerIndex);
+
+  let rows = tableBody.rows;
+  for (let row of rows) {
+    row.deleteCell(playerIndex);
   }
-  console.log(players.indexOf(playerID));
-  players.splice(players.indexOf(playerID), 1);
-  console.log(players);
+
+  players.splice(playerIndex, 1);
 };
 
 const getPlayerIndexFromID = (id) => {
   return players.indexOf(id);
 };
+function goalChangedHandler(e) {
+  goal = parseInt(e.value);
+  calculateSumAllPlayers();
+  window.localStorage.setItem("goal", goal);
+}
+function initialize() {
+  let value = window.localStorage.getItem("goal");
+  if (value) {
+    goal = value;
+    document.querySelector("#input-target").value = value;
+    calculateSumAllPlayers();
+  }
+}
+function inputEnterKeyHandler(e) {
+  // this just mimics tab if enter is pressed
+  if (e.key === "Enter") {
+    let tableRows = document.querySelector("#tableBody").rows;
+    let row = e.target["data-row"];
+    let column = [...tableRows[row].children].indexOf(e.target.parentElement);
+
+    let rowColumnsCount = tableRows[row].children.length;
+    if (column < rowColumnsCount - 1) {
+      tableRows[row].children[column + 1].children[0].focus();
+    } else if (row < tableRows.length - 1) {
+      tableRows[row + 1].children[0].children[0].focus();
+    }
+  }
+}

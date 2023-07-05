@@ -30,6 +30,20 @@ table {
   border-spacing: 0px;
   position: relative;
 }
+.input-goal {
+  border: 1px solid black;
+  max-width: 80px;
+  max-height: 30px;
+}
+.padding-label {
+  padding-left: 32px;
+  padding-right: 8px;
+}
+.label-goal {
+  align-self: center;
+  font-size: 28px;
+  font-weight: bolder;
+}
 
 input {
   text-align: center;
@@ -69,12 +83,36 @@ tfoot td {
 
 .removePlayerButton {
   background-color: red;
+  opacity: 0.4;
   position: absolute;
   right: 0;
   height: 100%;
-  width: 25px;
+  width: 30px;
+  font-weight: bolder;
 }
-
+.removePlayerButton:hover {
+  opacity: 1;
+  border: 2px solid gold;
+}
+.button-add-player,
+.button-clear-scores {
+  width: 120px;
+  height: 30px;
+  font-weight: bolder;
+  font-size: 18px;
+}
+.button-add-player {
+  background-color: darkgreen;
+  color: white;
+}
+.button-clear-scores {
+  background-color: yellow;
+  color: black;
+}
+.padding {
+  padding-top: 16px;
+  padding-bottom: 32px;
+}
 /* input remove arrows */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {

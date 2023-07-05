@@ -7,14 +7,25 @@
     <link rel="stylesheet" href="style.css" />
     <script src="functions.js"></script>
   </head>
-  <body>
+  <body onload="initialize()">
     <div class="grid-center">
       <h1>Dart Tavla</h1>
-      <div class="flexbox-row center">
-        <button onclick="addPlayer()">Add player</button>
-        <button onclick="addRow()">Add row</button>
-        <button onclick="clearScores()">Clear scores</button>
-        <button>Reset all</button>
+      <div class="flexbox-row center padding">
+        <button class="button-add-player" onclick="addPlayer()">
+          Add Player
+        </button>
+        <button class="button-clear-scores" onclick="clearScores()">
+          Clear scores
+        </button>
+        <label class="label-goal padding-label" for="input-target">Goal</label>
+        <input
+          id="input-target"
+          name="input-target"
+          class="input-goal"
+          type="number"
+          placeholder="Target score"
+          onblur="goalChangedHandler(this)"
+        />
       </div>
       <div id="playerContainer" class="playerContainer">
         <table>
