@@ -1,13 +1,14 @@
 let playercount = 0;
-let rowcount = 0;
 let goal = 250;
-let rows = [];
+let rows = new Array();
+let players = [];
 
 function addPlayer() {
-  let head = document.querySelector("#tableHead");
+  let head = document.querySelector("#tableHeadRow");
   let footer = document.querySelector("#tableFooterRow");
   let body = document.querySelector("#tableBody");
-  if (!head) return;
+  let playerID = crypto.randomUUID();
+  players.push(playerID);
 
   newPlayer = document.createElement("th");
   inputName = document.createElement("input");
@@ -19,29 +20,28 @@ function addPlayer() {
   button.textContent = "X";
   button.classList.add("removePlayerButton");
   button.addEventListener("click", removePlayerHandler);
-  button["data-player"] = playercount;
+  button["data-player"] = playerID;
 
   newPlayer.appendChild(inputName);
   newPlayer.appendChild(button);
+  newPlayer["data-player"] = playerID;
   head.appendChild(newPlayer);
 
   //Add missing column cells if game is already started
-  if (rowcount > 0) {
-    for (let i = 0; i < rowcount; i++) {
+  if (rows.length > 0) {
+    for (let i = 0; i < rows.length; i++) {
       let cell = createTableCellWithInput();
-      cell.children[0]["data-player"] = playercount;
+      cell.children[0]["data-player"] = playerID;
       cell.children[0]["data-row"] = i;
       body.children[i].appendChild(cell);
-      rows[i].push(cell);
+      rows[i].appendChild(cell);
     }
   }
 
-  let sum = createTableCellFooter();
-  sum["data-player"] = playercount;
-  console.log(sum);
-  console.log(footer);
-  footer.appendChild(sum);
-  calculateSum(playercount);
+  let footerCell = createTableCellFooter();
+  footerCell["data-player"] = playerID;
+  footer.appendChild(footerCell);
+  calculateSum(getPlayerIndexFromID(playerID));
 
   playercount += 1;
 }
@@ -49,20 +49,16 @@ function addPlayer() {
 function addRow() {
   let body = document.querySelector("#tableBody");
   let row = document.createElement("tr");
-  row["data-test"] = "dsds";
-  rows[rowcount] = [];
 
-  for (let i = 0; i < playercount; i++) {
+  for (let i = 0; i < players.length; i++) {
     let cell = createTableCellWithInput();
-    cell.children[0]["data-player"] = i;
-    cell.children[0]["data-row"] = rowcount;
+    cell.children[0]["data-player"] = players[i];
+    cell.children[0]["data-row"] = rows.length;
     row.appendChild(cell);
-
-    rows[rowcount].push(cell);
   }
+  rows.push(row);
   body.appendChild(row);
   row.scrollIntoView();
-  rowcount += 1;
 }
 function createTableCellWithInput() {
   let cell = document.createElement("td");
@@ -71,7 +67,7 @@ function createTableCellWithInput() {
   input.placeholder = "0";
   input.addEventListener("blur", (e) => {
     validateInput(e);
-    calculateSum(e.target["data-player"]);
+    calculateSum(getPlayerIndexFromID(e.target["data-player"]));
   });
   input.addEventListener("focus", (e) => {
     if (isNewRowNeeded(e.target["data-row"])) {
@@ -94,54 +90,93 @@ const validateInput = (e) => {
   if (value.includes("+") || value.includes("-")) {
     try {
       value = eval(value);
-      console.log("converted");
     } catch (error) {}
   }
   value = value === undefined || value === null || isNaN(value) ? 0 : value;
   e.target.value = value;
 };
 const calculateSum = (playerIndex) => {
-  console.log("summing");
   let sum = 0;
-  for (let i = 0; i < rows.length; i++) {
-    let val = parseInt(rows[i][playerIndex].children[0].value);
+  let body = document.querySelector("#tableBody");
+  for (let i = 0; i < body.rows.length; i++) {
+    let val = parseInt(body.rows[i].children[playerIndex].children[0].value);
     sum += val === undefined || val === null || isNaN(val) ? 0 : val;
   }
   let footer = document.querySelector("#tableFooterRow");
   footer.children[playerIndex].children[0].value = `${sum} (${sum - goal})`;
 };
 const calculateSumAllPlayers = () => {
-  for (let i = 0; i < playercount; i++) {
+  for (let i = 0; i < players.length; i++) {
     calculateSum(i);
   }
 };
 const isNewRowNeeded = (rowIndex) => {
-  return rowIndex + 1 >= rowcount;
+  return rowIndex + 1 >= rows.length;
 };
 const clearScores = () => {
   rows.forEach((row) => {
-    for (let i = 0; i < playercount; i++) {
+    for (let i = 0; i < players.length; i++) {
       row[i].removeChild(row[i].children[0]);
       row[i].removeChild(row[i].children[1]);
       row[i].parentElement.removeChild(row[i]);
     }
   });
   rows = [];
-  rowcount = 0;
+
   addRow();
   calculateSumAllPlayers();
 };
 
 removePlayerHandler = (e) => {
-  index = e.target["data-player"];
-  removeColumn(index);
+  index = getPlayerIndexFromID(e.target["data-player"]);
+  removeColumn(e.target["data-player"]);
 };
 const removePlayer = (playerIndex) => {
   removeColumn(playerIndex);
 };
-const removeColumn = (index) => {
-  rows.forEach((row) => {
-    row[index].removeChild(row[index].children[0]);
-    row[index].parentElement.removeChild(row[index]);
-  });
+const removeColumn = (playerID) => {
+  console.log(players);
+  console.log(playerID);
+  let tableBody = document.querySelector("#tableBody");
+
+  // remove columns
+  let rows = tableBody.rows;
+  for (let row of rows) {
+    for (let i = 0; i < row.children.length; i++) {
+      let child = row.children[i];
+      if (child.children[0]["data-player"] === playerID) {
+        row.removeChild(child);
+        break;
+      }
+    }
+  }
+
+  // remove footer
+  let footer = document.querySelector("#tableFooterRow");
+
+  for (let i = 0; i < footer.children.length; i++) {
+    let child = footer.children[i];
+    if (child["data-player"] === playerID) {
+      footer.removeChild(child);
+      break;
+    }
+  }
+
+  // remove header
+  let header = document.querySelector("#tableHeadRow");
+
+  for (let i = 0; i < header.children.length; i++) {
+    let child = header.children[i];
+    if (child["data-player"] === playerID) {
+      header.removeChild(child);
+      break;
+    }
+  }
+  console.log(players.indexOf(playerID));
+  players.splice(players.indexOf(playerID), 1);
+  console.log(players);
+};
+
+const getPlayerIndexFromID = (id) => {
+  return players.indexOf(id);
 };
