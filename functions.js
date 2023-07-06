@@ -47,7 +47,6 @@ function addPlayer() {
 
   playercount += 1;
 }
-
 function addRow() {
   let body = document.querySelector("#tableBody");
   let row = document.createElement("tr");
@@ -90,7 +89,7 @@ function createTableCellFooter() {
 }
 const validateInput = (e) => {
   let value = e.target.value;
-  if (value.includes("+") || value.includes("-")) {
+  if (value.includes("+") || value.includes("-") || value.includes("*")) {
     try {
       value = eval(value);
     } catch (error) {}
@@ -129,28 +128,21 @@ function clearScores() {
   calculateSumAllPlayers();
   tableBody.rows[0].children[0].children[0].focus();
 }
-
-removePlayerHandler = (e) => {
+const removePlayerHandler = (e) => {
   index = getPlayerIndexFromID(e.target["data-player"]);
   removeColumn(index);
 };
-
 const removeColumn = (playerIndex) => {
-  let tableBody = document.querySelector("#tableBody");
-  let footer = document.querySelector("#tableFooterRow");
-  let header = document.querySelector("#tableHeadRow");
+  let columns = getColumns(playerIndex);
+  let headerCell = getHeaderCell(playerIndex);
+  let footerCell = getFooterCell(playerIndex);
 
-  footer.deleteCell(playerIndex);
-  header.deleteCell(playerIndex);
-
-  let rows = tableBody.rows;
-  for (let row of rows) {
-    row.deleteCell(playerIndex);
-  }
+  headerCell.remove();
+  footerCell.remove();
+  columns.forEach((element) => element.remove());
 
   players.splice(playerIndex, 1);
 };
-
 const getPlayerIndexFromID = (id) => {
   return players.indexOf(id);
 };
@@ -181,4 +173,31 @@ function inputEnterKeyHandler(e) {
       tableRows[row + 1].children[0].children[0].focus();
     }
   }
+}
+function getHeaderCell(index) {
+  let header = document.querySelector("#tableHeadRow");
+  return header.children[index];
+}
+function getFooterCell(index) {
+  let footer = document.querySelector("#tableFooterRow");
+  return footer.children[index];
+}
+function getColumns(index) {
+  let tableBody = document.querySelector("#tableBody");
+  let rows = tableBody.rows;
+  columns = [];
+  for (let row of rows) {
+    columns.push(row.children[index]);
+  }
+  return columns;
+}
+function addCssClassToArrayElements(array, className) {
+  array.forEach((element) => {
+    element.classList.add(className);
+  });
+}
+function removeCssClassToArrayElements(array, className) {
+  array.forEach((element) => {
+    element.classList.remove(className);
+  });
 }
