@@ -11,11 +11,21 @@ h1 {
 .flexbox-row {
   display: flex;
   flex-direction: row;
+  align-items: center;
 }
 .center {
   place-content: center;
 }
-
+.shortcut-table td,
+.shortcut-table th {
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.shortcut-table {
+  left: 50px;
+  font-size: 22px;
+}
 .grid-center {
   display: grid;
   place-content: center;
@@ -44,7 +54,10 @@ table {
   font-size: 28px;
   font-weight: bolder;
 }
-
+tbody input {
+  color: green;
+  font-weight: bold;
+}
 input {
   text-align: center;
   width: 100%;
@@ -113,6 +126,38 @@ tfoot td {
   padding-top: 16px;
   padding-bottom: 32px;
 }
+.yellow-text {
+  color: yellow;
+}
+.red-text {
+  color: red;
+}
+.won {
+  background-color: green;
+}
+.flexboox-column {
+  display: flex;
+  flex-direction: column;
+}
+.border {
+  border: 1px solid black;
+}
+
+.won-column-data {
+  background-color: rgb(155, 219, 155) !important;
+  border-left: goldenrod solid 2px;
+  border-right: goldenrod solid 2px;
+}
+.won-header,
+.won-footer {
+  background-color: rgb(155, 219, 155);
+  border-left: goldenrod solid 2px;
+  border-right: goldenrod solid 2px;
+}
+.won-footer {
+  border-bottom: goldenrod solid 2px;
+}
+
 /* input remove arrows */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {

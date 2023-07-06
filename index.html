@@ -9,14 +9,8 @@
   </head>
   <body onload="initialize()">
     <div class="grid-center">
-      <h1>Dart Tavla</h1>
+      <h1 id="title">Dart Tavla v1.1</h1>
       <div class="flexbox-row center padding">
-        <button class="button-add-player" onclick="addPlayer()">
-          Add Player
-        </button>
-        <button class="button-clear-scores" onclick="clearScores()">
-          Clear scores
-        </button>
         <label class="label-goal padding-label" for="input-target">Goal</label>
         <input
           id="input-target"
@@ -25,7 +19,35 @@
           type="number"
           placeholder="Target score"
           onblur="goalChangedHandler(this)"
+          onkeypress="goalKeypressedHandler(event)"
         />
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Shortcut</th>
+              <th>Command</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SHIFT +</td>
+              <td>Add new player</td>
+            </tr>
+            <tr>
+              <td>SHIFT -</td>
+              <td>Remove last player</td>
+            </tr>
+            <tr>
+              <td>SHIFT C</td>
+              <td>Clear score</td>
+            </tr>
+            <tr>
+              <td>F5</td>
+              <td>Reset game</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <div id="playerContainer" class="playerContainer">
         <table>
@@ -41,7 +63,9 @@
     </div>
   </body>
   <script>
-    addPlayer();
+    //addPlayer();
     addRow();
+
+    window.addEventListener("keydown", (e) => globalKeypressHandler(e));
   </script>
 </html>
