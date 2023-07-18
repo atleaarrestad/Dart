@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>yo</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="functions.js"></script>
+  </head>
+  <body onload="initialize()">
+    <div class="grid-center">
+      <h1 id="title">Dart Tavla v1.1</h1>
+      <div class="flexbox-row center padding">
+        <label class="label-goal padding-label" for="input-target">Goal</label>
+        <input
+          id="input-target"
+          name="input-target"
+          class="input-goal"
+          type="number"
+          placeholder="Target score"
+          onblur="goalChangedHandler(this)"
+          onkeypress="goalKeypressedHandler(event)"
+        />
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Shortcut</th>
+              <th>Command</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SHIFT +</td>
+              <td>Add new player</td>
+            </tr>
+            <tr>
+              <td>SHIFT -</td>
+              <td>Remove last player</td>
+            </tr>
+            <tr>
+              <td>SHIFT C</td>
+              <td>Clear score</td>
+            </tr>
+            <tr>
+              <td>F5</td>
+              <td>Reset game</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="playerContainer" class="playerContainer">
+        <table>
+          <thead id="tableHead">
+            <tr id="tableHeadRow"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot id="tableFooter">
+            <tr id="tableFooterRow"></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </body>
+  <script>
+    //addPlayer();
+    addRow();
+
+    window.addEventListener("keydown", (e) => globalKeypressHandler(e));
+  </script>
+</html>
