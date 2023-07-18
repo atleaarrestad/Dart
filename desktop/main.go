@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -32,7 +31,7 @@ func GetWorkDir() string {
 	return filepath.Dir(ex)
 }
 
-func AppendPrefix(prefix string, h http.Handler) http.Handler {
+func AppendPrefix(prefix string, h http.Handler, content embed.FS) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trimDuplicates := func(str string, duplicate string) string {
 			regex := regexp.MustCompile("(?:" + duplicate + "){2,}")
@@ -44,9 +43,15 @@ func AppendPrefix(prefix string, h http.Handler) http.Handler {
 		url := r.URL
 
 		// Mutate the URL.
-		url.Path = trimDuplicates(prefix+url.Path, "/")
+		//var newPath = trimDuplicates(prefix+url.Path, "/")
+		//_, err := content.ReadFile(newPath)
+		//if err != nil {
+		//	url.Path = newPath
+		//} else {
+		//	url.Path = trimDuplicates(prefix+"/index.html", "/")
+		//}
 
-		fmt.Println(url.Path)
+		url.Path = trimDuplicates(prefix+url.Path, "/")
 
 		h.ServeHTTP(w, r)
 	})
@@ -54,7 +59,12 @@ func AppendPrefix(prefix string, h http.Handler) http.Handler {
 
 func main() {
 	fs := http.FileServer(http.FS(content))
-	http.Handle("/", AppendPrefix("/dist", fs))
+
+	http.Handle("/", AppendPrefix("/dist", fs, content))
+	http.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		url := r.URL
+		url.Path = "/dist/index.html"
+	}))
 
 	go http.ListenAndServe(":46852", nil)
 

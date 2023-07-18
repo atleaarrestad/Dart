@@ -4,6 +4,7 @@ import { includeCE } from '@roenlie/mimic-lit/injectable';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { live } from 'lit/directives/live.js';
 import { map } from 'lit/directives/map.js';
 
@@ -27,7 +28,11 @@ type Score = {
 	calculation: string;
 }
 
-type Participant = {player: Player, score: Score[]};
+type Participant = {
+	player: Player;
+	goal: number;
+	score: Score[];
+};
 
 
 @customElement('dart-play-page')
@@ -40,25 +45,26 @@ export class DartPlayElement extends LitElement {
 				id:   'adwda',
 				name: 'Kristoffer',
 			},
+			goal:  this.goal,
 			score: [
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 			],
@@ -68,25 +74,26 @@ export class DartPlayElement extends LitElement {
 				id:   'adwda',
 				name: 'Atle',
 			},
+			goal:  this.goal,
 			score: [
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 			],
@@ -96,30 +103,91 @@ export class DartPlayElement extends LitElement {
 				id:   'adwda',
 				name: 'Kjetil',
 			},
+			goal:  this.goal,
 			score: [
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 				{
-					sum:         15,
-					total:       15,
+					sum:         0,
+					total:       0,
 					calculation: '',
 				},
 			],
 		},
 	];
+
+	protected handleGoalInput(ev: EventOf<HTMLInputElement>) {
+		ev.target.value = ev.target.value
+			.replace(/[^0-9]/g, '');
+
+		this.goal = parseInt(ev.target.value || '0');
+		this.participants.forEach(p => p.goal = this.goal);
+	}
+
+	protected handleHeaderInput(
+		participant: Participant,
+		ev: EventOf<HTMLInputElement>,
+	) {
+		participant.player.name = ev.target.value;
+	}
+
+	protected handleScoreInput(
+		participant: Participant,
+		index: number,
+		ev: EventOf<HTMLInputElement>,
+	) {
+		const calculation = ev.target.value;
+		const sanitizedExpr = calculation
+			.replace(/^0+/, '')
+			.replace(/[^0-9/+()*-]/g, '') // remove all invalid chars
+			.replace(/^\D+/, '')          // remove any leading non digits
+			.replace(/\D+$/, '');         // remove any trailing non digits
+
+		const sum = Math.floor(parseFloat(eval(sanitizedExpr) ?? 0));
+
+		participant.score[index] = {
+			...participant.score[index] ?? {},
+			calculation,
+			sum,
+			total: 0,
+		};
+
+		participant.score.forEach((score, i) => {
+			// find first previous with a valid score.
+			const previous = participant.score
+				.findLast((s, sI) => sI < i && s.total <= this.goal);
+
+			if (!previous)
+				score.total = 0;
+			else
+				score.total = previous.total;
+
+			score.total += score.sum;
+		});
+
+		this.requestUpdate();
+	}
+
+	protected handleScoreFocus(ev: FocusEvent) {
+		console.log('got focus');
+	}
+
+	protected handleScoreBlur(ev: FocusEvent) {
+		console.log('lost focus');
+	}
 
 	public override render() {
 		return html`
@@ -139,11 +207,16 @@ export class DartPlayElement extends LitElement {
 
 		<div class="table">
 			${ map(this.participants, (participant, i) => html`
-			<article class="player-column">
+			<article
+				class=${ classMap({
+					winner: participant.score.some(s => s.total === this.goal),
+				}) }
+			>
 				<header>
 					<input
 						placeholder=${ 'Player ' + (i + 1) }
 						.value=${ live(participant.player.name) }
+						@input=${ this.handleHeaderInput.bind(this, participant) }
 					/>
 					<button>
 						<mm-icon
@@ -153,16 +226,21 @@ export class DartPlayElement extends LitElement {
 				</header>
 
 				<ol>
-					${ map(participant.score, score => html`
-					<li>
-						<input .value=${ live(score.sum.toString()) } />
+					${ map(participant.score, (score, sId) => html`
+					<li class=${ classMap({ invalid: score.total > this.goal }) }>
+						<input
+							.value=${ live(score.calculation) }
+							@input=${ this.handleScoreInput.bind(this, participant, sId) }
+							@focus=${ this.handleScoreFocus }
+							@blur =${ this.handleScoreBlur }
+						/>
 					</li>
 					`) }
 				</ol>
 
 				<footer>
 					${ participant.score.at(-1)?.total ?? 0 }
-					(${ this.goal - (participant.score.at(-1)?.total ?? 0) })
+					(${ (participant.score.at(-1)?.total ?? 0) - this.goal })
 				</footer>
 			</article>
 			`) }
@@ -187,6 +265,7 @@ export class DartPlayElement extends LitElement {
 		}
 		article {
 			--borderr: 4px;
+			overflow: hidden;
 			display: grid;
 			grid-template-rows: max-content 1fr max-content;
 			border-left: 1px solid black;
@@ -201,6 +280,9 @@ export class DartPlayElement extends LitElement {
 			border-top-right-radius: var(--borderr);
 			border-bottom-right-radius: var(--borderr);
 			border-right: 1px solid black;
+		}
+		article.winner {
+			background-color: lightgreen;
 		}
 		article header {
 			display: grid;
@@ -246,6 +328,9 @@ export class DartPlayElement extends LitElement {
 			all: unset;
 			display: grid;
 		}
+		article ol li.invalid {
+			color: red;
+		}
 		article ol li:nth-child(even) {
 			background-color: rgb(180 204 185 / 25%);
 		}
@@ -257,8 +342,13 @@ export class DartPlayElement extends LitElement {
 			box-sizing: border-box;
 		}
 		article footer {
+			display: grid;
+			place-items: center;
 			border-top: 1px solid black;
 			height: 30px;
+		}
+		article:not(.winner) ol:focus-within~footer {
+			background-color: yellow;
 		}
 	`,
 	];
