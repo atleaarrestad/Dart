@@ -29,6 +29,7 @@ export class DartLayoutElement extends LitElement {
 				<span>Score</span>
 			</a>
 		</nav>
+
 		<main>
 			<slot></slot>
 		</main>

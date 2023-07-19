@@ -129,6 +129,8 @@ export class DartPlayElement extends LitElement {
 		},
 	];
 
+	@state() protected selected?: {player: Player; index: number;};
+
 	protected handleGoalInput(ev: EventOf<HTMLInputElement>) {
 		ev.target.value = ev.target.value
 			.replace(/[^0-9]/g, '');
@@ -181,8 +183,14 @@ export class DartPlayElement extends LitElement {
 		this.requestUpdate();
 	}
 
-	protected handleScoreFocus(ev: FocusEvent) {
-		console.log('got focus');
+	protected handleScoreFocus(
+		participant: Participant,
+		index: number,
+	) {
+		this.selected = {
+			player: participant.player,
+			index,
+		};
 	}
 
 	protected handleScoreBlur(ev: FocusEvent) {
@@ -219,9 +227,7 @@ export class DartPlayElement extends LitElement {
 						@input=${ this.handleHeaderInput.bind(this, participant) }
 					/>
 					<button>
-						<mm-icon
-							url="/x-lg.svg"
-						></mm-icon>
+						<mm-icon url="/x-lg.svg"></mm-icon>
 					</button>
 				</header>
 
@@ -229,16 +235,19 @@ export class DartPlayElement extends LitElement {
 					${ map(participant.score, (score, sId) => html`
 					<li class=${ classMap({ invalid: score.total > this.goal }) }>
 						<input
+							tabindex=${ participant.score.some(s => s.total === this.goal) ? '-1' : '0' }
 							.value=${ live(score.calculation) }
 							@input=${ this.handleScoreInput.bind(this, participant, sId) }
-							@focus=${ this.handleScoreFocus }
+							@focus=${ this.handleScoreFocus.bind(this, participant, sId) }
 							@blur =${ this.handleScoreBlur }
 						/>
 					</li>
 					`) }
 				</ol>
 
-				<footer>
+				<footer class=${ classMap({
+					modified: !!(this.selected?.index !== undefined && ((participant.score[this.selected?.index]?.sum ?? 0) > 0)),
+				}) }>
 					${ participant.score.at(-1)?.total ?? 0 }
 					(${ (participant.score.at(-1)?.total ?? 0) - this.goal })
 				</footer>
@@ -347,7 +356,7 @@ export class DartPlayElement extends LitElement {
 			border-top: 1px solid black;
 			height: 30px;
 		}
-		article:not(.winner) ol:focus-within~footer {
+		article:not(.winner) ol:focus-within~footer.modified {
 			background-color: yellow;
 		}
 	`,
