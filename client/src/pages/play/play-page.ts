@@ -5,7 +5,7 @@ import { IconElement } from '@roenlie/mimic-elements/icon';
 import { includeCE } from '@roenlie/mimic-lit/injectable';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { live } from 'lit/directives/live.js';
 import { map } from 'lit/directives/map.js';
@@ -33,6 +33,7 @@ type Score = {
 type Participant = {
 	player: Player;
 	goal: number;
+	placement: number;
 	score: Score[];
 };
 
@@ -41,14 +42,16 @@ type Participant = {
 export class DartPlayElement extends LitElement {
 
 	@state() protected goal = 250;
+	protected selected?: {player: Player; columnIndex: number; rowIndex: number;};
 	protected participants: Participant[] = [
 		{
 			player: {
 				id:   crypto.randomUUID(),
-				name: 'Kristoffer',
+				name: '',
 			},
-			goal:  this.goal,
-			score: [
+			goal:      this.goal,
+			placement: 0,
+			score:     [
 				{
 					sum:         0,
 					total:       0,
@@ -59,10 +62,11 @@ export class DartPlayElement extends LitElement {
 		{
 			player: {
 				id:   crypto.randomUUID(),
-				name: 'Atle',
+				name: '',
 			},
-			goal:  this.goal,
-			score: [
+			goal:      this.goal,
+			placement: 0,
+			score:     [
 				{
 					sum:         0,
 					total:       0,
@@ -73,10 +77,11 @@ export class DartPlayElement extends LitElement {
 		{
 			player: {
 				id:   crypto.randomUUID(),
-				name: 'Kjetil',
+				name: '',
 			},
-			goal:  this.goal,
-			score: [
+			goal:      this.goal,
+			placement: 0,
+			score:     [
 				{
 					sum:         0,
 					total:       0,
@@ -86,8 +91,207 @@ export class DartPlayElement extends LitElement {
 		},
 	];
 
-	protected selected?: {player: Player; index: number;};
+	//#region Lifecycle
+	public override connectedCallback(): void {
+		super.connectedCallback();
+		window.addEventListener('keydown', this.handlePageKeydown);
+	}
 
+	public override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		window.removeEventListener('keydown', this.handlePageKeydown);
+	}
+	//#endregion
+
+
+	//#region Logic
+	protected getHeaderField(columnIndex: number): HTMLInputElement | null
+	protected getHeaderField(playerId: string): HTMLInputElement | null
+	protected getHeaderField(columnOrId: number | string) {
+		if (typeof columnOrId === 'number') {
+			const playerId = this.participants[columnOrId]?.player.id ?? '';
+			columnOrId = playerId;
+		}
+
+		return this.renderRoot.querySelector<HTMLInputElement>(
+			'[name="header|' + columnOrId + '"]',
+		);
+	}
+
+	protected getListField(columnIndex: number, rowIndex: number): HTMLInputElement | null
+	protected getListField(playerId: string, rowIndex: number): HTMLInputElement | null
+	protected getListField(columnOrId: number | string, rowIndex: number) {
+		if (typeof columnOrId === 'number') {
+			const playerId = this.participants[columnOrId]?.player.id ?? '';
+			columnOrId = playerId;
+		}
+
+		return this.renderRoot.querySelector<HTMLInputElement>(
+			'[name="field|' + columnOrId + '|' + rowIndex + '"]',
+		);
+	}
+
+	protected moveListFocus(direction: 'backwards' | 'forwards'): boolean {
+		if (!this.selected)
+			this.getListField(0, 0)?.focus();
+
+		invariant(this.selected);
+
+		type Next = { columnIndex: number; rowIndex: number; };
+		const nextIsInvalid = (next: Next) => {
+			if (!next)
+				return true;
+			if (this.participants[next.columnIndex]?.placement)
+				return true;
+
+			return !this.participants[next.columnIndex];
+		};
+
+		if (direction === 'backwards') {
+			const findNextBackwards = (startColIndex: number, startRowIndex: number) => {
+				let next: Next = {
+					columnIndex: startColIndex,
+					rowIndex:    startRowIndex,
+				};
+
+				do {
+					if (next.columnIndex === 0 && next.rowIndex === 0) {
+						// End of available fields. Exit.
+						return undefined;
+					}
+					else if (next.columnIndex === 0 && next.rowIndex > 0) {
+						next = {
+							columnIndex: this.participants.length - 1,
+							rowIndex:    next.rowIndex - 1,
+						};
+					}
+					else {
+						next = {
+							columnIndex: next.columnIndex - 1,
+							rowIndex:    next.rowIndex,
+						};
+					}
+				} while (nextIsInvalid(next));
+
+				return next;
+			};
+
+			const next = findNextBackwards(this.selected.columnIndex, this.selected.rowIndex);
+			if (next) {
+				this.getListField(next.columnIndex, next.rowIndex)?.focus();
+
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
+
+		if (direction === 'forwards') {
+			const findNextForwards = (startColIndex: number, startRowIndex: number) => {
+				let next: Next = {
+					columnIndex: startColIndex,
+					rowIndex:    startRowIndex,
+				};
+
+				do {
+					const highestRowIndex = this.participants
+						.reduce((pre, cur) => cur.score.length > pre ? cur.score.length : pre, 0);
+
+					if (next.columnIndex === this.participants.length - 1 &&
+						next.rowIndex === highestRowIndex
+					) {
+						// End of available fields. Exit.
+						return undefined;
+					}
+					else if (next.columnIndex === this.participants.length - 1 &&
+						next.rowIndex < highestRowIndex
+					) {
+						next = {
+							columnIndex: 0,
+							rowIndex:    next.rowIndex + 1,
+						};
+					}
+					else {
+						next = {
+							columnIndex: next.columnIndex + 1,
+							rowIndex:    next.rowIndex,
+						};
+					}
+				} while (nextIsInvalid(next));
+
+				return next;
+			};
+
+			const next = findNextForwards(this.selected.columnIndex, this.selected.rowIndex);
+			if (next) {
+				this.getListField(next.columnIndex, next.rowIndex)?.focus();
+
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
+
+		return false;
+	}
+
+	protected ensureCorrectRowAmount() {
+		const longestScore = this.participants.reduce((prev, cur) => {
+			return cur.score.length > prev ? cur.score.length : prev;
+		}, 0);
+
+		// Make sure all participants have the same about of score entries.
+		this.participants.forEach(par => {
+			const lastTotal = par.score.at(-1)?.total ?? 0;
+
+			while (par.score.length < longestScore) {
+				par.score.push({
+					calculation: '',
+					sum:         0,
+					total:       lastTotal,
+				});
+			}
+		});
+
+		// If there is not an empty line after the last line with calculations
+		// Or if there is only one line present.
+		// Increment all score entries by one.
+		while (this.participants.some(par => {
+			return par.score.length < 2 || par.score.at(-1)?.calculation;
+		})) {
+			this.participants.forEach(par => {
+				const lastTotal = par.score.at(-1)?.total ?? 0;
+				par.score.push({
+					calculation: '',
+					sum:         0,
+					total:       lastTotal,
+				});
+			});
+		}
+
+		// while there are two rows after eachother with all entries empty,
+		// and there are more than 2 lines
+		// remove the last row.
+		while (this.participants.every(par => {
+			return par.score.at(-1)?.calculation === '' &&
+				par.score.at(-2)?.calculation === ''
+				&& par.score.length > 2;
+		}))
+			this.participants.forEach(par => par.score.pop());
+
+		this.requestUpdate();
+	}
+
+	protected findClosestTotal(participant: Participant) {
+		return participant.score
+			.findLast(s => s.total <= participant.goal)?.total ?? 0;
+	}
+	//#endregion
+
+
+	//#region Handlers
 	protected handleGoalInput(ev: EventOf<HTMLInputElement>) {
 		ev.target.value = ev.target.value
 			.replace(/[^0-9]/g, '');
@@ -139,7 +343,6 @@ export class DartPlayElement extends LitElement {
 			else
 				score.total = previous.total;
 
-			//if ((score.total + score.sum) <= participant.goal)
 			score.total += score.sum;
 		});
 
@@ -148,18 +351,63 @@ export class DartPlayElement extends LitElement {
 
 	protected handleScoreFocus(
 		participant: Participant,
-		index: number,
+		columnIndex: number,
+		rowIndex: number,
 	) {
 		this.selected = {
 			player: participant.player,
-			index,
+			columnIndex,
+			rowIndex,
 		};
 
 		this.ensureCorrectRowAmount();
 	}
 
-	protected handleScoreBlur() {
+	protected handleScoreBlur(participant: Participant) {
 		this.selected = undefined;
+
+		// If this participant reaches the goal on blur.
+		// Give them a placement.
+		// Else remove any placement they had been mistakenly given.
+		if (participant.score.at(-1)?.total === participant.goal) {
+			participant.placement = this.participants
+				.reduce((pre, cur) => pre > cur.placement ? cur.placement : pre, 0) + 1;
+		}
+		else {
+			participant.placement = 0;
+		}
+	}
+
+	protected handleClickAddPlayer() {
+		const longestScore = this.participants.reduce((prev, cur) => {
+			return cur.score.length > prev ? cur.score.length : prev;
+		}, 0);
+
+		this.participants.push({
+			goal:      this.goal,
+			placement: 0,
+			player:    {
+				id:   crypto.randomUUID(),
+				name: '',
+			},
+			score: range(longestScore)
+				.map(() => ({ calculation: '', sum: 0, total: 0 })),
+		});
+
+		this.requestUpdate();
+
+		this.updateComplete.then(() => {
+			this.getHeaderField(this.participants.length - 1)?.focus();
+		});
+	}
+
+	protected handleClickRemovePlayer(index: number) {
+		this.participants.splice(index, 1);
+		this.requestUpdate();
+
+		this.updateComplete.then(() => {
+			this.getHeaderField(this.participants.length - 1)?.focus();
+		});
 	}
 
 	protected handleHeaderKeydown(ev: KeyboardEvent) {
@@ -169,11 +417,8 @@ export class DartPlayElement extends LitElement {
 
 			const playerIndex = this.participants.findIndex(p => p.player.id === playerId);
 			if (playerIndex === (this.participants.length - 1)) {
-				this.renderRoot.querySelector<HTMLInputElement>(
-					'[name="field|' + this.participants[0]?.player.id + '|0"]',
-				)?.focus();
-
 				ev.preventDefault();
+				this.getListField(0, 0)?.focus();
 			}
 		}
 	}
@@ -187,227 +432,84 @@ export class DartPlayElement extends LitElement {
 
 	protected handleListEnterKeydown(ev: KeyboardEvent) {
 		ev.preventDefault();
-
-		invariant(this.selected, 'No input selected.');
-
-		const participant = this.participants
-			.find(p => p.player.id === this.selected?.player.id)!;
-		invariant(participant, 'Cannot get participant for id: ' + this.selected.player.id);
-
-		const playerIndex = this.participants.findIndex(p => p === participant);
-		if (playerIndex === (this.participants.length - 1)) {
-			this.moveTableFocus({
-				playerId: this.selected.player.id,
-				rowIndex: this.selected.index,
-			}, 'left', this.participants.length);
-
-			this.moveTableFocus({
-				playerId: this.selected.player.id,
-				rowIndex: this.selected.index,
-			}, 'down');
-		}
-		else {
-			this.moveTableFocus({
-				playerId: this.selected.player.id,
-				rowIndex: this.selected.index,
-			}, 'right');
-		}
+		if (ev.shiftKey)
+			this.moveListFocus('backwards');
+		else
+			this.moveListFocus('forwards');
 	}
 
 	protected handleListTabKeydown(ev: KeyboardEvent) {
 		ev.preventDefault();
 
-		invariant(this.selected, 'No input selected.');
-
-		const participant = this.participants
-			.find(p => p.player.id === this.selected?.player.id)!;
-		invariant(participant, 'Cannot get participant for id: ' + this.selected.player.id);
-
-		const playerIndex = this.participants.findIndex(p => p === participant);
-
-		// Move backwards
 		if (ev.shiftKey) {
-			if (playerIndex === 0 && this.selected.index === 0) {
-				const lastPlayerId = this.participants.at(-1)?.player.id;
-				this.renderRoot.querySelector<HTMLInputElement>(
-					'[name="' + 'header|' + lastPlayerId + '"]',
-				)?.focus();
-			}
-			else if (playerIndex === 0) {
-				this.moveTableFocus({
-					playerId: this.selected.player.id,
-					rowIndex: this.selected.index,
-				}, 'up');
-
-				this.moveTableFocus({
-					playerId: this.selected.player.id,
-					rowIndex: this.selected.index,
-				}, 'right', this.participants.length);
-			}
-			else {
-				this.moveTableFocus({
-					playerId: this.selected.player.id,
-					rowIndex: this.selected.index,
-				}, 'left');
-			}
+			const success = this.moveListFocus('backwards');
+			if (!success)
+				this.getHeaderField(this.participants.length - 1)?.focus();
 		}
-		// Move forwards
 		else {
-			if (playerIndex === (this.participants.length - 1)) {
-				this.moveTableFocus({
-					playerId: this.selected.player.id,
-					rowIndex: this.selected.index,
-				}, 'left', this.participants.length);
-
-				this.moveTableFocus({
-					playerId: this.selected.player.id,
-					rowIndex: this.selected.index,
-				}, 'down');
-			}
-			else {
-				this.moveTableFocus({
-					playerId: this.selected.player.id,
-					rowIndex: this.selected.index,
-				}, 'right');
-			}
+			this.moveListFocus('forwards');
 		}
 	}
 
-	protected handleClickAddPlayer() {
-		const longestScore = this.participants.reduce((prev, cur) => {
-			return cur.score.length > prev ? cur.score.length : prev;
-		}, 0);
+	protected handlePageKeydown = (ev: KeyboardEvent) => {
+		if (ev.shiftKey && ev.code === 'KeyC') {
+			ev.preventDefault();
 
-		this.participants.push({
-			goal:   this.goal,
-			player: {
-				id:   crypto.randomUUID(),
-				name: '',
-			},
-			score: range(longestScore)
-				.map(() => ({ calculation: '', sum: 0, total: 0 })),
-		});
-
-		this.requestUpdate();
-	}
-
-	protected handleClickRemovePlayer(participant: Participant) {
-		const index = this.participants.findIndex(p => p.player.id === participant.player.id);
-		if (index >= 0) {
-			this.participants.splice(index, 1);
+			this.participants.forEach(par => {
+				par.score = [
+					{
+						calculation: '',
+						sum:         0,
+						total:       0,
+					},
+				];
+			});
+			this.getListField(0, 0)?.focus();
 			this.requestUpdate();
 		}
-	}
 
-	protected moveTableFocus(
-		from: {playerId: string; rowIndex: number;},
-		direction: 'left' | 'right' | 'up' | 'down',
-		step = 1,
-	) {
-		const fromRowIndex = from.rowIndex;
-		const fromColumnIndex = this.participants
-			.findIndex(p => p.player.id === from.playerId);
-
-		if (fromColumnIndex < 0)
-			throw new Error('Could not get playerId: ' + from.playerId);
-
-		const toRowIndex = direction === 'up'
-			? Math.max(0, fromRowIndex - step)
-			: direction === 'down'
-				? fromRowIndex + step
-				: fromRowIndex;
-
-		let toColumnIndex = fromColumnIndex;
-		if (direction === 'left')
-			toColumnIndex = Math.max(0, fromColumnIndex - step);
-		else if (direction === 'right')
-			toColumnIndex = Math.min(this.participants.length - 1, fromColumnIndex + step);
-
-		const playerId = this.participants[toColumnIndex]?.player;
-		invariant(playerId, 'Player in column: ' + toColumnIndex + ' could not be found');
-
-		const inputEl = this.renderRoot.querySelector(
-			'[name="' + 'field|' + playerId.id + '|' + toRowIndex + '"]',
-		) as HTMLInputElement | undefined;
-
-		inputEl?.focus();
-	}
-
-	protected ensureCorrectRowAmount() {
-		const longestScore = this.participants.reduce((prev, cur) => {
-			return cur.score.length > prev ? cur.score.length : prev;
-		}, 0);
-
-		// Make sure all participants have the same about of score entries.
-		this.participants.forEach(par => {
-			const lastTotal = par.score.at(-1)?.total ?? 0;
-
-			while (par.score.length < longestScore) {
-				par.score.push({
-					calculation: '',
-					sum:         0,
-					total:       lastTotal,
-				});
-			}
-		});
-
-		// If there is not an empty line after the last line with calculations
-		// Or if there is only one line present.
-		// Increment all score entries by one.
-		while (this.participants.some(par => {
-			return par.score.length < 2 || par.score.at(-1)?.calculation;
-		})) {
-			this.participants.forEach(par => {
-				const lastTotal = par.score.at(-1)?.total ?? 0;
-				par.score.push({
-					calculation: '',
-					sum:         0,
-					total:       lastTotal,
-				});
-			});
+		if (ev.shiftKey && (ev.key === '?' || ev.key === '+')) {
+			ev.preventDefault();
+			this.handleClickAddPlayer();
 		}
 
-		// while there are two rows after eachother with all entries empty,
-		// and there are more than 2 lines
-		// remove the last row.
-		while (this.participants.every(par => {
-			return par.score.at(-1)?.calculation === '' &&
-				par.score.at(-2)?.calculation === ''
-				&& par.score.length > 2;
-		}))
-			this.participants.forEach(par => par.score.pop());
+		if (ev.shiftKey && (ev.key === '_' || ev.key === '-')) {
+			ev.preventDefault();
+			this.handleClickRemovePlayer(this.participants.length - 1);
+		}
+	};
+	//#endregion
 
-		this.requestUpdate();
 
-		this.updateComplete.then(() => {
-			if (this.selected)
-				return;
-
-			const firstPlayerId = this.participants[0]?.player.id;
-			const firstInputEl = this.renderRoot.querySelector(
-				'[name="' + 'field|' + firstPlayerId + '|0"]',
-			) as HTMLInputElement | undefined;
-
-			firstInputEl?.focus();
-		});
-	}
-
-	protected findClosestTotal(participant: Participant) {
-		return participant.score
-			.findLast(s => s.total <= participant.goal)?.total ?? 0;
-	}
-
+	//#region Template
 	public override render() {
 		return html`
-		<div>
-			<input
-				.value=${ this.goal.toString() }
-				@input=${ this.handleGoalInput }
-			/>
+		<div class="page-header">
+			<div>
+				<div>Goal:</div>
+				<input
+					.value=${ this.goal.toString() }
+					@input=${ this.handleGoalInput }
+				/>
+			</div>
+			<div class="shortcuts">
+				<div class="group">
+					<span>shift +</span>
+					<span>Add new player</span>
+				</div>
+				<div class="group">
+					<span>shift -</span>
+					<span>remove last player</span>
+				</div>
+				<div class="group">
+					<span>shift c</span>
+					<span>clear score</span>
+				</div>
+			</div>
 		</div>
 
-		<div class="table" @focusout=${ () => this.requestUpdate() }>
-			${ map(this.participants, (participant, i) => html`
+		<div class="table" @focusout=${ () => setTimeout(() => void this.requestUpdate()) }>
+			${ map(this.participants, (participant, pId) => html`
 			<article
 				class=${ classMap({
 					winner: participant.score.some(s => s.total === this.goal),
@@ -416,14 +518,14 @@ export class DartPlayElement extends LitElement {
 				<header>
 					<input
 						name=${ 'header|' + participant.player.id }
-						placeholder=${ 'Player ' + (i + 1) }
+						placeholder=${ 'Player ' + (pId + 1) }
 						.value=${ live(participant.player.name) }
 						@input=${ this.handleHeaderInput.bind(this, participant) }
 						@keydown=${ this.handleHeaderKeydown }
 					/>
 					<button
 						tabindex="-1"
-						@click=${ this.handleClickRemovePlayer.bind(this, participant) }
+						@click=${ this.handleClickRemovePlayer.bind(this, pId) }
 					>
 						<mm-icon url="/x-lg.svg"></mm-icon>
 					</button>
@@ -438,8 +540,8 @@ export class DartPlayElement extends LitElement {
 							tabindex="-1"
 							.value=${ live(score.calculation) }
 							@input=${ this.handleScoreInput.bind(this, participant, sId) }
-							@focus=${ this.handleScoreFocus.bind(this, participant, sId) }
-							@blur=${ this.handleScoreBlur }
+							@focus=${ this.handleScoreFocus.bind(this, participant, pId, sId) }
+							@blur=${ this.handleScoreBlur.bind(this, participant) }
 						/>
 					</li>
 					`) }
@@ -447,8 +549,8 @@ export class DartPlayElement extends LitElement {
 
 				<footer
 					class=${ classMap({
-						modified: !!(this.selected?.index !== undefined &&
-							((participant.score[this.selected?.index]?.sum ?? 0) > 0)),
+						modified: !!(this.selected?.rowIndex !== undefined &&
+							((participant.score[this.selected?.rowIndex]?.sum ?? 0) > 0)),
 					}) }
 				>
 					${ (() => {
@@ -481,6 +583,20 @@ export class DartPlayElement extends LitElement {
 			gap: 12px;
 			margin-block: 12px;
 			margin-inline: 22px;
+		}
+		.page-header {
+			display: grid;
+			grid-auto-flow: column;
+			grid-auto-columns: max-content;
+			gap: 12px;
+			border: 1px solid black;
+			border-radius: 4px;
+			padding-block: 4px;
+			padding-inline: 8px;
+		}
+		.page-header .group {
+			display: grid;
+			grid-template-columns: 60px max-content;
 		}
 		.table {
 			position: relative;
@@ -614,5 +730,6 @@ export class DartPlayElement extends LitElement {
 		}
 	`,
 	];
+	//#endregion
 
 }
