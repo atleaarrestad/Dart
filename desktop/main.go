@@ -2,14 +2,11 @@ package main
 
 import (
 	"embed"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/jchv/go-webview-selector"
 )
 
 //go:embed dist/*
@@ -31,7 +28,7 @@ func GetWorkDir() string {
 	return filepath.Dir(ex)
 }
 
-func AppendPrefix(prefix string, h http.Handler, content embed.FS) http.Handler {
+func AppendPrefix(prefix string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trimDuplicates := func(str string, duplicate string) string {
 			regex := regexp.MustCompile("(?:" + duplicate + "){2,}")
@@ -42,16 +39,17 @@ func AppendPrefix(prefix string, h http.Handler, content embed.FS) http.Handler 
 		// Get the original URL.
 		url := r.URL
 
-		// Mutate the URL.
-		//var newPath = trimDuplicates(prefix+url.Path, "/")
-		//_, err := content.ReadFile(newPath)
-		//if err != nil {
-		//	url.Path = newPath
-		//} else {
-		//	url.Path = trimDuplicates(prefix+"/index.html", "/")
-		//}
-
-		url.Path = trimDuplicates(prefix+url.Path, "/")
+		regex := regexp.MustCompile("[.][a-zA-Z]+$")
+		if regex.MatchString(url.Path) {
+			// has an extension, serve as normal.
+			url.Path = trimDuplicates(prefix+url.Path, "/")
+		} else if url.Path == "/" {
+			// asking for the root path, serve as normal
+			url.Path = trimDuplicates(prefix+url.Path, "/")
+		} else {
+			// path is not asking for a static asset, redirect to index.
+			url.Path = trimDuplicates(prefix+"/index.html", "/")
+		}
 
 		h.ServeHTTP(w, r)
 	})
@@ -60,29 +58,35 @@ func AppendPrefix(prefix string, h http.Handler, content embed.FS) http.Handler 
 func main() {
 	fs := http.FileServer(http.FS(content))
 
-	http.Handle("/", AppendPrefix("/dist", fs, content))
-	http.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		url := r.URL
-		url.Path = "/dist/index.html"
-	}))
-
-	go http.ListenAndServe(":46852", nil)
-
-	debug := true
-	w := webview.New(debug)
-	if w == nil {
-		log.Fatalln("Failed to load webview.")
-	}
-	defer w.Destroy()
-
-	w.SetTitle("Minimal webview example")
-	w.SetSize(800, 600, webview.HintNone)
-
-	if GetWorkDir() == "." {
-		w.Navigate("http://localhost:5173")
-	} else {
-		w.Navigate("http://localhost:46852/index.html")
-	}
-
-	w.Run()
+	http.Handle("/", AppendPrefix("/dist", fs))
+	http.ListenAndServe(":46852", nil)
 }
+
+//func main() {
+//	fs := http.FileServer(http.FS(content))
+
+//	http.Handle("/", AppendPrefix("/dist", fs))
+
+//	go http.ListenAndServe(":46852", nil)
+
+//	debug := true
+//	w := webview.New(debug)
+//	if w == nil {
+
+//		log.Fatalln("Failed to load webview.")
+//	}
+//	defer w.Destroy()
+
+//	w.SetTitle("Minimal webview example")
+//	w.SetSize(800, 600, webview.HintNone)
+
+//	w.Navigate("http://localhost:46852/index.html")
+
+//	//if GetWorkDir() == "." {
+//	//	w.Navigate("http://localhost:5173")
+//	//} else {
+//	//	w.Navigate("http://localhost:46852/index.html")
+//	//}
+
+//	w.Run()
+//}
