@@ -513,13 +513,18 @@ export class DartPlayElement extends LitElement {
 						<img src=${ '/Dart/rank_' + participant.placement + '.png' }></img>
 						`) }
 					</span>
-					<input
-						name=${ 'header|' + participant.player.id }
-						placeholder=${ 'Player ' + (pId + 1) }
-						.value=${ live(participant.player.name) }
-						@input=${ this.handleHeaderInput.bind(this, participant) }
-						@keydown=${ this.handleHeaderKeydown }
-					/>
+					<div class="header-dropdown">
+						<input
+							name=${ 'header|' + participant.player.id }
+							placeholder=${ 'Player ' + (pId + 1) }
+							.value=${ live(participant.player.name) }
+							@input=${ this.handleHeaderInput.bind(this, participant) }
+							@keydown=${ this.handleHeaderKeydown }
+						/>
+						<div class="dropdown">
+							<div>Kristoffer</div>
+						</div>
+					</div>
 					<button
 						tabindex="-1"
 						@click=${ this.handleClickRemovePlayer.bind(this, pId) }
@@ -649,12 +654,19 @@ export class DartPlayElement extends LitElement {
 		article header .placement img {
 			width: 25px;
 		}
+		article header .header-dropdown {
+			position: relative;
+			display: grid;
+		}
 		article header input {
 			all: unset;
 			width: 100%;
 			text-align: center;
 			border-radius: 2px;
 			box-sizing: border-box;
+		}
+		.header-dropdown .dropdown {
+			position: absolute;
 		}
 		article header button {
 			all: unset;
