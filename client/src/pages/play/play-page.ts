@@ -1,3 +1,4 @@
+import { faker } from '@faker-js/faker';
 import { range } from '@roenlie/mimic-core/array';
 import { EventOf } from '@roenlie/mimic-core/dom';
 import { invariant } from '@roenlie/mimic-core/validation';
@@ -9,16 +10,15 @@ import { customElement, queryAll, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { live } from 'lit/directives/live.js';
 import { map } from 'lit/directives/map.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 
-includeCE(IconElement);
+import { DartDropdownElement, DartDropdownItemElement } from './dropdown-element.js';
+
+includeCE(IconElement, DartDropdownElement, DartDropdownItemElement);
 
 
-declare global {
-	interface HTMLElementTagNameMap {
-		'dart-play-page': DartPlayElement;
-	}
-}
+declare global { interface HTMLElementTagNameMap { 'dart-play-page': DartPlayElement; } }
 
 type Player = {
 	id: string;
@@ -39,6 +39,9 @@ type Participant = {
 };
 
 
+const usernames = range(0, 100).map(() => faker.person.firstName());
+
+
 @customElement('dart-play-page')
 export class DartPlayElement extends LitElement {
 
@@ -46,7 +49,7 @@ export class DartPlayElement extends LitElement {
 	@queryAll('article ol') protected listEls: HTMLOListElement[];
 	protected selected?: {player: Player; columnIndex: number; rowIndex: number;};
 	protected participants: Participant[] = [
-		...range(0, 3).map(() => ({
+		...range(0, 2).map(() => ({
 			player: {
 				id:   crypto.randomUUID(),
 				name: '',
@@ -288,6 +291,7 @@ export class DartPlayElement extends LitElement {
 		ev: EventOf<HTMLInputElement>,
 	) {
 		participant.player.name = ev.target.value;
+		this.requestUpdate();
 	}
 
 	protected handleScoreInput(
@@ -397,8 +401,13 @@ export class DartPlayElement extends LitElement {
 	}
 
 	protected handleHeaderKeydown(ev: KeyboardEvent) {
+		ev.stopPropagation();
+
 		if (ev.key === 'Tab' && !ev.shiftKey) {
 			const target = ev.target as HTMLInputElement | undefined;
+			console.log({ target, name: target?.name });
+
+
 			const playerId = target?.name.split('|').at(-1);
 
 			const playerIndex = this.participants.findIndex(p => p.player.id === playerId);
@@ -501,30 +510,43 @@ export class DartPlayElement extends LitElement {
 		</div>
 
 		<div class="table" @focusout=${ () => setTimeout(() => void this.requestUpdate()) }>
-			${ map(this.participants, (participant, pId) => html`
+			${ map(this.participants, (par, pId) => html`
 			<article
 				class=${ classMap({
-					winner: participant.score.some(s => s.total === this.goal),
+					winner: par.score.some(s => s.total === this.goal),
 				}) }
 			>
 				<header>
 					<span class="placement">
-						${ when(participant.placement, () => html`
-						<img src=${ '/Dart/rank_' + participant.placement + '.png' }></img>
+						${ when(par.placement, () => html`
+						<img src=${ '/Dart/rank_' + par.placement + '.png' }
+						></img>
 						`) }
 					</span>
-					<div class="header-dropdown">
-						<input
-							name=${ 'header|' + participant.player.id }
-							placeholder=${ 'Player ' + (pId + 1) }
-							.value=${ live(participant.player.name) }
-							@input=${ this.handleHeaderInput.bind(this, participant) }
-							@keydown=${ this.handleHeaderKeydown }
-						/>
-						<div class="dropdown">
-							<div>Kristoffer</div>
-						</div>
-					</div>
+
+					<dart-dropdown
+						name=${ 'header|' + par.player.id }
+						placeholder=${ 'Player ' + (pId + 1) }
+						.value=${ par.player.name }
+						@input=${ this.handleHeaderInput.bind(this, par) }
+						@keydown=${ this.handleHeaderKeydown }
+						@select-item=${ (ev: CustomEvent) => console.log(ev) }
+					>
+						${ repeat(usernames.filter(u => {
+							const [ uUpper, nameUpper ] = [ u.toUpperCase(), par.player.name.toUpperCase() ];
+
+							return uUpper.startsWith(nameUpper) ||
+								uUpper.endsWith(nameUpper) ||
+								uUpper.includes(par.player.name.toUpperCase());
+						}), u => u, (u) => html`
+						<dart-dropdown-item>
+							${ u }
+						</dart-dropdown-item>
+						`) }
+
+						<button slot="action">Create user</button>
+					</dart-dropdown>
+
 					<button
 						tabindex="-1"
 						@click=${ this.handleClickRemovePlayer.bind(this, pId) }
@@ -533,22 +555,25 @@ export class DartPlayElement extends LitElement {
 					</button>
 				</header>
 
-				<ol @keydown=${ this.handleListKeydown } @scroll=${ this.handleListScroll }>
+				<ol>
 					<li class="info">
 						<span>R</span>
 						<span>Calc</span>
 						<span>Sum</span>
 					</li>
-					${ map(participant.score, (score, sId) => html`
+				</ol>
+
+				<ol @keydown=${ this.handleListKeydown } @scroll=${ this.handleListScroll }>
+					${ map(par.score, (score, sId) => html`
 					<li class=${ classMap({ invalid: score.total > this.goal }) }>
 						<span>${ sId + 1 }</span>
 						<input
-							name=${ 'field|' + participant.player.id + '|' + sId }
+							name=${ 'field|' + par.player.id + '|' + sId }
 							tabindex="-1"
 							.value=${ live(score.calculation) }
-							@input=${ this.handleScoreInput.bind(this, participant, sId) }
-							@focus=${ this.handleScoreFocus.bind(this, participant, pId, sId) }
-							@blur=${ this.handleScoreBlur.bind(this, participant, score) }
+							@input=${ this.handleScoreInput.bind(this, par, sId) }
+							@focus=${ this.handleScoreFocus.bind(this, par, pId, sId) }
+							@blur=${ this.handleScoreBlur.bind(this, par, score) }
 						/>
 						<output>${ score.sum }</output>
 					</li>
@@ -558,13 +583,13 @@ export class DartPlayElement extends LitElement {
 				<footer
 					class=${ classMap({
 						modified: !!(this.selected?.rowIndex !== undefined &&
-							((participant.score[this.selected?.rowIndex]?.sum ?? 0) > 0)),
+							((par.score[this.selected?.rowIndex]?.sum ?? 0) > 0)),
 					}) }
 				>
 					${ (() => {
-						const closest = this.findClosestTotal(participant);
+						const closest = this.findClosestTotal(par);
 
-						return `${ closest } (${ closest - participant.goal })`;
+						return `${ closest } (${ closest - par.goal })`;
 					})() }
 				</footer>
 			</article>
@@ -619,7 +644,7 @@ export class DartPlayElement extends LitElement {
 			--borderr: 4px;
 			overflow: hidden;
 			display: grid;
-			grid-template-rows: max-content 1fr max-content;
+			grid-template-rows: max-content max-content 1fr max-content;
 			border-left: 2px solid black;
 			border-top: 2px solid black;
 			border-bottom: 2px solid black;
@@ -653,20 +678,6 @@ export class DartPlayElement extends LitElement {
 		}
 		article header .placement img {
 			width: 25px;
-		}
-		article header .header-dropdown {
-			position: relative;
-			display: grid;
-		}
-		article header input {
-			all: unset;
-			width: 100%;
-			text-align: center;
-			border-radius: 2px;
-			box-sizing: border-box;
-		}
-		.header-dropdown .dropdown {
-			position: absolute;
 		}
 		article header button {
 			all: unset;
@@ -705,9 +716,6 @@ export class DartPlayElement extends LitElement {
 		article ol li.info {
 			font-size: 12px;
 			border-bottom: 1px solid black;
-			position: sticky;
-			top: 0;
-			z-index: 1;
 			background-color: rgb(180 204 185);
 		}
 		article ol li>*:first-child {
@@ -723,7 +731,7 @@ export class DartPlayElement extends LitElement {
 			display: inline-grid;
 			align-items: center;
 			justify-content: center;
-			opacity: 0.8;
+			color: rgb(0 0 0 / 75%);
 		}
 		article ol li input {
 			all: unset;
@@ -744,13 +752,6 @@ export class DartPlayElement extends LitElement {
 		}
 		article:not(.winner) ol:focus-within~footer.modified {
 			background-color: yellow;
-		}
-		button.add-player {
-			position: absolute;
-			right: 0;
-			color: green;
-			font-size: 22px;
-			cursor: pointer;
 		}
 		button.add-player {
 			all: unset;
