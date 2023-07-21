@@ -22,7 +22,16 @@ export class DartRouterElement extends LitElement {
 				{
 					path:     '/',
 					redirect: '/play',
-
+					action:   () => {
+						console.log('nei');
+					},
+				},
+				{
+					path:     '',
+					redirect: '/play',
+					action:   () => {
+						console.log('HEI');
+					},
 				},
 				{
 					path:      '/play',
@@ -43,8 +52,12 @@ export class DartRouterElement extends LitElement {
 	public override connectedCallback(): void {
 		super.connectedCallback();
 
+		this.router.baseUrl = '/Dart/';
 		this.router.setRoutes(this.routes);
 		this.router.setOutlet(this.renderRoot);
+
+		if (location.pathname === this.router.baseUrl.replace(/\/$/, '') && !location.pathname.endsWith('/'))
+			Router.go(this.router.baseUrl);
 	}
 
 	public static override styles = [
