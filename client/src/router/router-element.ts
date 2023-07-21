@@ -64,6 +64,7 @@ export class DartRouterElement extends LitElement {
 		css`
 		:host {
 			display: grid;
+			overflow: hidden;
 		}
 	`,
 	];

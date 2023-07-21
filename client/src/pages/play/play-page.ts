@@ -5,10 +5,11 @@ import { IconElement } from '@roenlie/mimic-elements/icon';
 import { includeCE } from '@roenlie/mimic-lit/injectable';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, queryAll, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { live } from 'lit/directives/live.js';
 import { map } from 'lit/directives/map.js';
+import { when } from 'lit/directives/when.js';
 
 includeCE(IconElement);
 
@@ -42,9 +43,10 @@ type Participant = {
 export class DartPlayElement extends LitElement {
 
 	@state() protected goal = 250;
+	@queryAll('article ol') protected listEls: HTMLOListElement[];
 	protected selected?: {player: Player; columnIndex: number; rowIndex: number;};
 	protected participants: Participant[] = [
-		{
+		...range(0, 3).map(() => ({
 			player: {
 				id:   crypto.randomUUID(),
 				name: '',
@@ -52,43 +54,13 @@ export class DartPlayElement extends LitElement {
 			goal:      this.goal,
 			placement: 0,
 			score:     [
-				{
+				...range(0, 2).map(() => ({
 					sum:         0,
 					total:       0,
 					calculation: '',
-				},
+				})),
 			],
-		},
-		{
-			player: {
-				id:   crypto.randomUUID(),
-				name: '',
-			},
-			goal:      this.goal,
-			placement: 0,
-			score:     [
-				{
-					sum:         0,
-					total:       0,
-					calculation: '',
-				},
-			],
-		},
-		{
-			player: {
-				id:   crypto.randomUUID(),
-				name: '',
-			},
-			goal:      this.goal,
-			placement: 0,
-			score:     [
-				{
-					sum:         0,
-					total:       0,
-					calculation: '',
-				},
-			],
-		},
+		})),
 	];
 
 	//#region Lifecycle
@@ -288,6 +260,16 @@ export class DartPlayElement extends LitElement {
 		return participant.score
 			.findLast(s => s.total <= participant.goal)?.total ?? 0;
 	}
+
+	protected sanitizeCalculation(input: string) {
+		const sanitizedExpr = input
+			.replace(/^0+/, '')           // remove all leading 0s
+			.replace(/[^0-9/+()*-]/g, '') // remove all invalid chars
+			.replace(/^[^(\d]+/, '')      // remove any leading non digits and non left parens
+			.replace(/[^)\d]+$/, '');     // remove any trailing non digits and non right parens
+
+		return sanitizedExpr;
+	}
 	//#endregion
 
 
@@ -316,11 +298,7 @@ export class DartPlayElement extends LitElement {
 		ev.target.value = ev.target.value.replace(/[^0-9/+()*-]/g, '');
 
 		const calculation = ev.target.value;
-		const sanitizedExpr = calculation
-			.replace(/^0+/, '')           // remove all leading 0s
-			.replace(/[^0-9/+()*-]/g, '') // remove all invalid chars
-			.replace(/^[^(\d]+/, '')      // remove any leading non digits and non left parens
-			.replace(/[^)\d]+$/, '');     // remove any trailing non digits and non right parens
+		const sanitizedExpr = this.sanitizeCalculation(calculation);
 
 		let sum = 0;
 		try { sum = Math.floor(parseFloat(eval(sanitizedExpr) ?? 0)); }
@@ -363,19 +341,27 @@ export class DartPlayElement extends LitElement {
 		this.ensureCorrectRowAmount();
 	}
 
-	protected handleScoreBlur(participant: Participant) {
+	protected handleScoreBlur(participant: Participant, score: Score) {
 		this.selected = undefined;
+		score.calculation = this.sanitizeCalculation(score.calculation);
 
 		// If this participant reaches the goal on blur.
 		// Give them a placement.
-		// Else remove any placement they had been mistakenly given.
+		// Else remove any placement they had been mistakenly given,
 		if (participant.score.at(-1)?.total === participant.goal) {
-			participant.placement = this.participants
-				.reduce((pre, cur) => pre > cur.placement ? cur.placement : pre, 0) + 1;
+			if (!participant.placement) {
+				participant.placement = this.participants
+					.reduce((pre, cur) => pre < cur.placement ? cur.placement : pre, 0) + 1;
+			}
 		}
 		else {
 			participant.placement = 0;
 		}
+
+		this.participants
+			.filter(par => par.placement)
+			.sort((a, b) => a.placement - b.placement)
+			.forEach((par, i) => par.placement = i + 1);
 	}
 
 	protected handleClickAddPlayer() {
@@ -451,11 +437,17 @@ export class DartPlayElement extends LitElement {
 		}
 	}
 
+	protected handleListScroll(ev: Event) {
+		const target = ev.target as HTMLOListElement;
+		this.listEls.forEach(listEl => listEl.scrollTop = target.scrollTop);
+	}
+
 	protected handlePageKeydown = (ev: KeyboardEvent) => {
 		if (ev.shiftKey && ev.code === 'KeyC') {
 			ev.preventDefault();
 
 			this.participants.forEach(par => {
+				par.placement = 0;
 				par.score = [
 					{
 						calculation: '',
@@ -516,6 +508,11 @@ export class DartPlayElement extends LitElement {
 				}) }
 			>
 				<header>
+					<span class="placement">
+						${ when(participant.placement, () => html`
+						<img src=${ '/Dart/rank_' + participant.placement + '.png' }></img>
+						`) }
+					</span>
 					<input
 						name=${ 'header|' + participant.player.id }
 						placeholder=${ 'Player ' + (pId + 1) }
@@ -527,22 +524,28 @@ export class DartPlayElement extends LitElement {
 						tabindex="-1"
 						@click=${ this.handleClickRemovePlayer.bind(this, pId) }
 					>
-						<mm-icon url="/x-lg.svg"></mm-icon>
+						<mm-icon url="/Dart/x-lg.svg"></mm-icon>
 					</button>
 				</header>
 
-				<ol @keydown=${ this.handleListKeydown }>
+				<ol @keydown=${ this.handleListKeydown } @scroll=${ this.handleListScroll }>
+					<li class="info">
+						<span>R</span>
+						<span>Calc</span>
+						<span>Sum</span>
+					</li>
 					${ map(participant.score, (score, sId) => html`
 					<li class=${ classMap({ invalid: score.total > this.goal }) }>
-						<output>${ score.sum }</output>
+						<span>${ sId + 1 }</span>
 						<input
 							name=${ 'field|' + participant.player.id + '|' + sId }
 							tabindex="-1"
 							.value=${ live(score.calculation) }
 							@input=${ this.handleScoreInput.bind(this, participant, sId) }
 							@focus=${ this.handleScoreFocus.bind(this, participant, pId, sId) }
-							@blur=${ this.handleScoreBlur.bind(this, participant) }
+							@blur=${ this.handleScoreBlur.bind(this, participant, score) }
 						/>
+						<output>${ score.sum }</output>
 					</li>
 					`) }
 				</ol>
@@ -567,7 +570,7 @@ export class DartPlayElement extends LitElement {
 				@click=${ this.handleClickAddPlayer }
 			>
 				<mm-icon
-					url="/plus-lg.svg"
+					url="/Dart/plus-lg.svg"
 				></mm-icon>
 			</button>
 		</div>
@@ -578,6 +581,7 @@ export class DartPlayElement extends LitElement {
 		sharedStyles,
 		css`
 		:host {
+			overflow: hidden;
 			display: grid;
 			grid-template-rows: max-content 1fr;
 			gap: 12px;
@@ -589,7 +593,7 @@ export class DartPlayElement extends LitElement {
 			grid-auto-flow: column;
 			grid-auto-columns: max-content;
 			gap: 12px;
-			border: 1px solid black;
+			border: 2px solid black;
 			border-radius: 4px;
 			padding-block: 4px;
 			padding-inline: 8px;
@@ -599,6 +603,7 @@ export class DartPlayElement extends LitElement {
 			grid-template-columns: 60px max-content;
 		}
 		.table {
+			overflow: hidden;
 			position: relative;
 			display: grid;
 			grid-auto-flow: column;
@@ -610,9 +615,9 @@ export class DartPlayElement extends LitElement {
 			overflow: hidden;
 			display: grid;
 			grid-template-rows: max-content 1fr max-content;
-			border-left: 1px solid black;
-			border-top: 1px solid black;
-			border-bottom: 1px solid black;
+			border-left: 2px solid black;
+			border-top: 2px solid black;
+			border-bottom: 2px solid black;
 		}
 		article:first-of-type {
 			border-top-left-radius: var(--borderr);
@@ -621,18 +626,28 @@ export class DartPlayElement extends LitElement {
 		article:last-of-type {
 			border-top-right-radius: var(--borderr);
 			border-bottom-right-radius: var(--borderr);
-			border-right: 1px solid black;
+			border-right: 2px solid black;
 		}
 		article.winner {
 			background-color: lightgreen;
 		}
 		article header {
 			display: grid;
-			grid-template-columns: 1fr max-content;
+			grid-template-columns: 30px 1fr 30px;
 			gap: 4px;
-			border-bottom: 1px solid  black;
+			border-bottom: 2px solid  black;
 			height: 30px;
 			padding-right: 4px;
+		}
+		article:focus-within header {
+			background-color: rgb(218 165 32 / 70%);
+		}
+		article header .placement {
+			display: grid;
+			place-items: center;
+		}
+		article header .placement img {
+			width: 25px;
 		}
 		article header input {
 			all: unset;
@@ -640,10 +655,6 @@ export class DartPlayElement extends LitElement {
 			text-align: center;
 			border-radius: 2px;
 			box-sizing: border-box;
-		}
-		article header input:focus-within {
-			outline: 2px solid teal;
-			outline-offset: -2px;
 		}
 		article header button {
 			all: unset;
@@ -662,6 +673,8 @@ export class DartPlayElement extends LitElement {
 		}
 		article ol {
 			all: unset;
+			overflow: auto;
+			--scrollbar-width: 0px;
 			display: grid;
 			grid-auto-flow: row;
 			grid-auto-rows: max-content;
@@ -669,7 +682,7 @@ export class DartPlayElement extends LitElement {
 		article ol li {
 			all: unset;
 			display: grid;
-			grid-template-columns: 30% 1fr;
+			grid-template-columns: 20px 1fr 50px;
 		}
 		article ol li.invalid {
 			color: red;
@@ -677,12 +690,27 @@ export class DartPlayElement extends LitElement {
 		article ol li:nth-child(even) {
 			background-color: rgb(180 204 185 / 25%);
 		}
-		article ol li output {
+		article ol li.info {
+			font-size: 12px;
+			border-bottom: 1px solid black;
+			position: sticky;
+			top: 0;
+			z-index: 1;
+			background-color: rgb(180 204 185);
+		}
+		article ol li>*:first-child {
+			border-right: 1px solid black;
+			font-size: 10px;
+		}
+		article ol li>*:last-child {
+			border-left: 1px solid black;
+		}
+		article ol li output,
+		article ol li span {
 			overflow: hidden;
 			display: inline-grid;
 			align-items: center;
 			justify-content: center;
-			border-right: 1px solid black;
 			opacity: 0.8;
 		}
 		article ol li input {
@@ -692,10 +720,13 @@ export class DartPlayElement extends LitElement {
 			padding: 2px;
 			box-sizing: border-box;
 		}
+		article ol li input:focus-within {
+			box-shadow: inset 0 0 2px black;
+		}
 		article footer {
 			display: grid;
 			place-items: center;
-			border-top: 1px solid black;
+			border-top: 2px solid black;
 			height: 40px;
 			font-size: 22px;
 		}

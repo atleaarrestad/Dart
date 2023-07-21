@@ -2,7 +2,7 @@ import { IconElement } from '@roenlie/mimic-elements/icon';
 import { includeCE } from '@roenlie/mimic-lit/injectable';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 
 includeCE(IconElement);
 
@@ -20,12 +20,12 @@ export class DartLayoutElement extends LitElement {
 	public override render() {
 		return html`
 		<nav>
-			<a href="/play">
-				<mm-icon url="/target.svg"></mm-icon>
+			<a href="/Dart/play">
+				<mm-icon url="/Dart/target.svg"></mm-icon>
 				<span>Play</span>
 			</a>
-			<a href="/scoreboard">
-				<mm-icon url="/chart-pipe.svg"></mm-icon>
+			<a href="/Dart/scoreboard">
+				<mm-icon url="/Dart/chart-pipe.svg"></mm-icon>
 				<span>Score</span>
 			</a>
 		</nav>
@@ -44,6 +44,7 @@ export class DartLayoutElement extends LitElement {
 		sharedStyles,
 		css`
 		:host {
+			overflow: hidden;
 			display: grid;
 			grid-template-columns: max-content 1fr;
 			grid-template-rows: 1fr;
@@ -73,6 +74,7 @@ export class DartLayoutElement extends LitElement {
 		}
 		main {
 			display: grid;
+			overflow: hidden;
 		}
 		.version-watermark {
 			position: fixed;
