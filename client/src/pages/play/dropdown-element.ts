@@ -1,4 +1,6 @@
 import { emitEvent, EventOf } from '@roenlie/mimic-core/dom';
+import { IconElement } from '@roenlie/mimic-elements/icon';
+import { includeCE } from '@roenlie/mimic-lit/injectable';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -7,26 +9,31 @@ import { live } from 'lit/directives/live.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { when } from 'lit/directives/when.js';
 
+includeCE(IconElement);
+
 
 declare global { interface HTMLElementTagNameMap {
-	'dart-dropdown': DartDropdownElement; 'dart-dropdown-item': DartDropdownItemElement;
+	'dart-dropdown': DartDropdownElement;
+	'dart-dropdown-item': DartDropdownItemElement;
 } }
 
 
 @customElement('dart-dropdown')
 export class DartDropdownElement extends LitElement {
 
-	@property() public value: string = '';
 	@property() public name?: string;
+	@property() public value?: string;
 	@property() public height?: string;
 	@property() public placeholder?: string;
+	@property({ type: Boolean }) public openOnFocus?: boolean;
+	@property({ type: Boolean }) public openOnInput?: boolean;
+	@property({ type: Boolean }) public closeOnSelect?: boolean;
+	@state() public open = false;
+	@query('slot') protected slotEl?: HTMLSlotElement;
 	@query('input') protected inputEl?: HTMLInputElement;
+	@query('input-container') protected inputWrapperEl?: HTMLElement;
 	public activeEl?: DartDropdownItemElement;
 	protected resizeObs = new ResizeObserver(() => this.requestUpdate());
-	protected get open() {
-		//return this.inputEl?.matches(':focus-within');
-		return true;
-	}
 
 	public override connectedCallback(): void {
 		super.connectedCallback();
@@ -37,9 +44,51 @@ export class DartDropdownElement extends LitElement {
 		});
 	}
 
-	protected handleInputKeydown(ev: KeyboardEvent) {
+	protected focusItem(item?: DartDropdownItemElement) {
+		this.querySelectorAll('*').forEach(el => el instanceof DartDropdownItemElement
+			? el.classList.toggle('active', false) : undefined);
+
+		this.activeEl = item;
+		this.activeEl?.classList.toggle('active', true);
+	}
+
+	protected selectItem(item: DartDropdownItemElement) {
+		this.inputEl?.focus();
+		emitEvent(item, 'select-item');
+
+		if (this.closeOnSelect)
+			this.open = false;
+	}
+
+	protected handleInput(ev: EventOf<HTMLInputElement>) {
+		if (!this.open && this.openOnInput)
+			this.open = true;
+
+		this.value = ev.target.value;
+	}
+
+	protected handleFocus() {
+		if (!this.open && this.openOnFocus)
+			this.open = true;
+	}
+
+	protected handleBlur() {
+		this.open = false;
+	}
+
+	protected async handleInputKeydown(ev: KeyboardEvent) {
 		if (ev.code === 'ArrowUp' || ev.code === 'ArrowDown') {
 			ev.preventDefault();
+
+			if (!this.open) {
+				this.open = true;
+				await this.updateComplete;
+			}
+
+			if (!this.activeEl) {
+				this.activeEl = this.slotEl?.assignedElements()
+					.at(0) as DartDropdownItemElement | undefined;
+			}
 
 			if (this.activeEl) {
 				const nextEl = ev.code === 'ArrowUp'
@@ -47,9 +96,7 @@ export class DartDropdownElement extends LitElement {
 					: this.activeEl.nextElementSibling;
 
 				if (nextEl instanceof DartDropdownItemElement) {
-					this.activeEl.classList.toggle('active', false);
-					this.activeEl = nextEl;
-					this.activeEl.classList.toggle('active', true);
+					this.focusItem(nextEl);
 
 					this.activeEl.scrollIntoView({ block: 'nearest' });
 				}
@@ -57,53 +104,108 @@ export class DartDropdownElement extends LitElement {
 		}
 
 		if (ev.key === 'Enter') {
-			if (this.activeEl)
-				emitEvent(this.activeEl, 'select-item');
+			const slot = this.activeEl?.assignedSlot;
+			if (slot?.name === 'action') {
+				const event = new KeyboardEvent('keydown', ev);
+				this.activeEl?.dispatchEvent(event);
+			}
+			else if (this.activeEl) {
+				this.selectItem(this.activeEl);
+			}
+		}
+
+		if (ev.key === 'Tab') {
+			const actionSlotEl = this.renderRoot
+				.querySelector<HTMLSlotElement>('slot[name="action"]');
+			const slotContent = actionSlotEl?.assignedElements();
+			const firstEl = slotContent?.at(0);
+
+			if (firstEl instanceof DartDropdownItemElement && firstEl !== this.activeEl) {
+				ev.preventDefault();
+				ev.stopPropagation();
+
+				this.focusItem(firstEl);
+			}
+		}
+
+		if (ev.key === 'Delete') {
+			ev.preventDefault();
+			emitEvent(this, 'clear');
+		}
+
+		if (ev.key === 'Escape') {
+			ev.preventDefault();
+			this.open = false;
 		}
 	}
 
 	protected handleDefaultSlotChange(ev: EventOf<HTMLSlotElement>) {
 		const slotContent = ev.target.assignedElements();
-		slotContent.forEach(el => el.classList.remove('active'));
 
 		const previousExists = slotContent.some(el => el === this.activeEl);
-		if (previousExists) {
-			this.activeEl?.classList.toggle('active', true);
-		}
-		else {
+		if (!previousExists) {
 			this.activeEl = undefined;
 
 			const firstEl = slotContent.at(0) as DartDropdownItemElement | undefined;
-			if (firstEl) {
-				this.activeEl = firstEl;
-				this.activeEl?.classList.toggle('active', true);
-			}
+			if (firstEl)
+				this.focusItem(firstEl);
 		}
 
-		this.activeEl?.scrollIntoView({ block: 'nearest' });
+		this.updateComplete.then(() => this.activeEl?.scrollIntoView({ block: 'center' }));
+	}
+
+	protected handleDropdownClick(ev: PointerEvent) {
+		ev.preventDefault();
+
+		const path = ev.composedPath();
+		const el = path.find((el): el is DartDropdownItemElement => el instanceof DartDropdownItemElement);
+		if (el?.assignedSlot?.name)
+			return;
+
+		if (el && this.activeEl !== el) {
+			this.focusItem(el);
+			this.selectItem(el);
+		}
 	}
 
 	public override render() {
 		return html`
-		<input
-			placeholder=${ ifDefined(this.placeholder) }
-			.value=${ live(this.value) }
-			@input=${ (ev: EventOf<HTMLInputElement>) => this.value = ev.target.value }
-			@keydown=${ this.handleInputKeydown }
-			@focus=${ () => void this.requestUpdate() }
-		/>
+		<input-container part="input-container">
+			<input
+				placeholder=${ ifDefined(this.placeholder) }
+				.value     =${ live(this.value ?? '') }
+				@input     =${ this.handleInput }
+				@keydown   =${ this.handleInputKeydown }
+				@focus     =${ this.handleFocus }
+				@blur      =${ this.handleBlur }
+			/>
+			${ when(this.value, () => html`
+			<button
+				tabindex="-1"
+				@mousedown=${ (ev: MouseEvent) => ev.preventDefault() }
+				@click=${ () => emitEvent(this, 'clear') }
+			>
+				<mm-icon
+					style="color: rgb(0 0 0 / 70%);"
+					url="/Dart/x-circle.svg"
+				></mm-icon>
+			</button>
+			`) }
+		</input-container>
 
 		${ when(this.open, () => {
-			const rects = this.inputEl?.getBoundingClientRect();
+			const rects = this.inputWrapperEl?.getBoundingClientRect();
 
 			return html`
-			<div
-				class="dropdown"
+			<input-dropdown
+				part="input-dropdown"
 				style=${ styleMap({
-					top:   rects?.bottom + 'px',
-					left:  rects?.left + 'px',
-					width: rects?.width + 'px',
+					top:    rects?.bottom + 'px',
+					left:   rects?.left + 'px',
+					width:  rects?.width + 'px',
+					height: this.height ?? '150px',
 				}) }
+				@mousedown=${ this.handleDropdownClick }
 			>
 				<ol>
 					<slot @slotchange=${ this.handleDefaultSlotChange }></slot>
@@ -112,7 +214,7 @@ export class DartDropdownElement extends LitElement {
 				<div class="action">
 					<slot name="action"></slot>
 				</div>
-			</div>
+			</input-dropdown>
 			`;
 		}) }
 		`;
@@ -125,14 +227,33 @@ export class DartDropdownElement extends LitElement {
 			position: relative;
 			display: grid;
 		}
-		input {
+		input-container {
+			display: grid;
+			grid-template-columns: 1fr max-content;
+			border: 1px solid black;
+		}
+		input-container input {
 			all: unset;
 			width: 100%;
 			text-align: center;
 			border-radius: 2px;
 			box-sizing: border-box;
+			grid-column: 1/3;
+			grid-row: 1/2;
 		}
-		.dropdown {
+		input-container button {
+			grid-column: 2/3;
+			grid-row: 1/2;
+			place-self: center;
+			display: grid;
+			place-items: center;
+			margin-right: 4px;
+		}
+		input-container button:focus-visible {
+			outline: 1px solid teal;
+			outline-offset: 1px;
+		}
+		input-dropdown {
 			overflow: hidden;
 			position: fixed;
 			display: grid;
@@ -142,6 +263,7 @@ export class DartDropdownElement extends LitElement {
 			border-bottom-left-radius: 8px;
 			border-bottom-right-radius: 8px;
 			border: 1px solid black;
+			border-top: none;
 		}
 		ol, li {
 			all: unset;
@@ -150,7 +272,6 @@ export class DartDropdownElement extends LitElement {
 			display: flex;
 			flex-flow: column nowrap;
 			overflow: auto;
-			height: 150px;
 		}
 		.action {
 			border-top: 1px solid black;
@@ -167,25 +288,23 @@ export class DartDropdownElement extends LitElement {
 @customElement('dart-dropdown-item')
 export class DartDropdownItemElement extends LitElement {
 
+	public override role = 'listitem';
+	public value?: any;
+
 	public override render() {
 		return html`
-		<li>
-			<slot></slot>
-		</li>
+		<slot></slot>
 		`;
 	}
 
 	public static override styles = [
 		css`
 		:host {
-			display: block;
-		}
-		li {
 			display: grid;
 			padding-inline: 12px;
 			cursor: pointer;
 		}
-		li:hover {
+		:host(:hover) {
 			background-color: rgb(138, 163, 92);
 		}
 	`,

@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { range } from '@roenlie/mimic-core/array';
-import { EventOf } from '@roenlie/mimic-core/dom';
+import { CustomEventOf, EventOf } from '@roenlie/mimic-core/dom';
 import { invariant } from '@roenlie/mimic-core/validation';
 import { IconElement } from '@roenlie/mimic-elements/icon';
 import { includeCE } from '@roenlie/mimic-lit/injectable';
@@ -10,28 +10,28 @@ import { customElement, queryAll, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { live } from 'lit/directives/live.js';
 import { map } from 'lit/directives/map.js';
-import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 
 import { DartDropdownElement, DartDropdownItemElement } from './dropdown-element.js';
+import { HeaderDropdown } from './header-dropdown.js';
 
-includeCE(IconElement, DartDropdownElement, DartDropdownItemElement);
+includeCE(IconElement, DartDropdownElement);
 
 
 declare global { interface HTMLElementTagNameMap { 'dart-play-page': DartPlayElement; } }
 
-type Player = {
+export type Player = {
 	id: string;
 	name: string;
 }
 
-type Score = {
+export type Score = {
 	total: number;
 	sum: number;
 	calculation: string;
 }
 
-type Participant = {
+export type Participant = {
 	player: Player;
 	goal: number;
 	placement: number;
@@ -287,10 +287,26 @@ export class DartPlayElement extends LitElement {
 	}
 
 	protected handleHeaderInput(
-		participant: Participant,
 		ev: EventOf<HTMLInputElement>,
+		participant: Participant,
 	) {
 		participant.player.name = ev.target.value;
+		this.requestUpdate();
+	}
+
+	protected handleHeaderSelect(
+		ev: CustomEventOf<any, DartDropdownItemElement>,
+		participant: Participant,
+	) {
+		participant.player.name = ev.target.value;
+		this.requestUpdate();
+	}
+
+	protected handleHeaderClear(
+		ev: CustomEventOf<any, DartDropdownItemElement>,
+		participant: Participant,
+	) {
+		participant.player.name = '';
 		this.requestUpdate();
 	}
 
@@ -405,8 +421,6 @@ export class DartPlayElement extends LitElement {
 
 		if (ev.key === 'Tab' && !ev.shiftKey) {
 			const target = ev.target as HTMLInputElement | undefined;
-			console.log({ target, name: target?.name });
-
 
 			const playerId = target?.name.split('|').at(-1);
 
@@ -483,6 +497,15 @@ export class DartPlayElement extends LitElement {
 
 
 	//#region Template
+	protected HeaderDropdown =  (par: Participant, index: number) => {
+		return new HeaderDropdown(
+			(ev) => this.handleHeaderInput(ev, par),
+			(ev) => this.handleHeaderSelect(ev, par),
+			(ev) => this.handleHeaderClear(ev, par),
+			(ev) => this.handleHeaderKeydown(ev),
+		).render(this, par, index, usernames);
+	};
+
 	public override render() {
 		return html`
 		<div class="page-header">
@@ -524,28 +547,7 @@ export class DartPlayElement extends LitElement {
 						`) }
 					</span>
 
-					<dart-dropdown
-						name=${ 'header|' + par.player.id }
-						placeholder=${ 'Player ' + (pId + 1) }
-						.value=${ par.player.name }
-						@input=${ this.handleHeaderInput.bind(this, par) }
-						@keydown=${ this.handleHeaderKeydown }
-						@select-item=${ (ev: CustomEvent) => console.log(ev) }
-					>
-						${ repeat(usernames.filter(u => {
-							const [ uUpper, nameUpper ] = [ u.toUpperCase(), par.player.name.toUpperCase() ];
-
-							return uUpper.startsWith(nameUpper) ||
-								uUpper.endsWith(nameUpper) ||
-								uUpper.includes(par.player.name.toUpperCase());
-						}), u => u, (u) => html`
-						<dart-dropdown-item>
-							${ u }
-						</dart-dropdown-item>
-						`) }
-
-						<button slot="action">Create user</button>
-					</dart-dropdown>
+					${ this.HeaderDropdown(par, pId) }
 
 					<button
 						tabindex="-1"
@@ -609,6 +611,7 @@ export class DartPlayElement extends LitElement {
 
 	public static override styles = [
 		sharedStyles,
+		HeaderDropdown.styles,
 		css`
 		:host {
 			overflow: hidden;
@@ -680,7 +683,6 @@ export class DartPlayElement extends LitElement {
 			width: 25px;
 		}
 		article header button {
-			all: unset;
 			place-self: center;
 			display: grid;
 			place-items: center;
@@ -754,7 +756,6 @@ export class DartPlayElement extends LitElement {
 			background-color: yellow;
 		}
 		button.add-player {
-			all: unset;
 			position: absolute;
 			right: 0px;
 			width: max-content;
