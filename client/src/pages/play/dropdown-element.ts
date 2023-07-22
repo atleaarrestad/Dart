@@ -28,7 +28,7 @@ export class DartDropdownElement extends LitElement {
 	@property({ type: Boolean }) public openOnFocus?: boolean;
 	@property({ type: Boolean }) public openOnInput?: boolean;
 	@property({ type: Boolean }) public closeOnSelect?: boolean;
-	@state() public open = false;
+	@state() public open = true;
 	@query('slot') protected slotEl?: HTMLSlotElement;
 	@query('input') protected inputEl?: HTMLInputElement;
 	@query('input-container') protected inputWrapperEl?: HTMLElement;
@@ -73,7 +73,7 @@ export class DartDropdownElement extends LitElement {
 	}
 
 	protected handleBlur() {
-		this.open = false;
+		//this.open = false;
 	}
 
 	protected async handleInputKeydown(ev: KeyboardEvent) {
@@ -276,9 +276,6 @@ export class DartDropdownElement extends LitElement {
 		.action {
 			border-top: 1px solid black;
 		}
-		::slotted(*.active) {
-			outline: 2px solid hotpink;
-		}
 		`,
 	];
 
@@ -303,9 +300,14 @@ export class DartDropdownItemElement extends LitElement {
 			display: grid;
 			padding-inline: 12px;
 			cursor: pointer;
+			border: 1px solid transparent;
 		}
 		:host(:hover) {
 			background-color: rgb(138, 163, 92);
+		}
+		:host(.active) {
+			background-color: rgb(94, 111, 63);
+			color: white;
 		}
 	`,
 	];

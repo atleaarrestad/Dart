@@ -497,7 +497,7 @@ export class DartPlayElement extends LitElement {
 
 
 	//#region Template
-	protected HeaderDropdown =  (par: Participant, index: number) => {
+	protected HeaderDropdown = (par: Participant, index: number) => {
 		return new HeaderDropdown(
 			(ev) => this.handleHeaderInput(ev, par),
 			(ev) => this.handleHeaderSelect(ev, par),
