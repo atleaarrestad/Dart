@@ -25,10 +25,11 @@ export class DartDropdownElement extends LitElement {
 	@property() public value?: string;
 	@property() public height?: string;
 	@property() public placeholder?: string;
+	@property({ type: Boolean }) public disabled?: boolean;
 	@property({ type: Boolean }) public openOnFocus?: boolean;
 	@property({ type: Boolean }) public openOnInput?: boolean;
 	@property({ type: Boolean }) public closeOnSelect?: boolean;
-	@state() public open = true;
+	@state() public open = false;
 	@query('slot') protected slotEl?: HTMLSlotElement;
 	@query('input') protected inputEl?: HTMLInputElement;
 	@query('input-container') protected inputWrapperEl?: HTMLElement;
@@ -42,6 +43,10 @@ export class DartDropdownElement extends LitElement {
 			if (this.inputEl)
 				this.resizeObs.observe(this.inputEl);
 		});
+	}
+
+	public override focus(options?: FocusOptions): void {
+		this.inputEl?.focus(options);
 	}
 
 	protected focusItem(item?: DartDropdownItemElement) {
@@ -73,7 +78,7 @@ export class DartDropdownElement extends LitElement {
 	}
 
 	protected handleBlur() {
-		//this.open = false;
+		this.open = false;
 	}
 
 	protected async handleInputKeydown(ev: KeyboardEvent) {
@@ -162,8 +167,10 @@ export class DartDropdownElement extends LitElement {
 		if (el?.assignedSlot?.name)
 			return;
 
-		if (el && this.activeEl !== el) {
-			this.focusItem(el);
+		if (el) {
+			if (this.activeEl !== el)
+				this.focusItem(el);
+
 			this.selectItem(el);
 		}
 	}
@@ -174,6 +181,7 @@ export class DartDropdownElement extends LitElement {
 			<input
 				placeholder=${ ifDefined(this.placeholder) }
 				.value     =${ live(this.value ?? '') }
+				?disabled  =${ this.disabled }
 				@input     =${ this.handleInput }
 				@keydown   =${ this.handleInputKeydown }
 				@focus     =${ this.handleFocus }

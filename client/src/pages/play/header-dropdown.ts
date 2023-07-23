@@ -3,9 +3,10 @@ import { onEnter } from '@roenlie/mimic-lit/directives';
 import { css, html } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 
+import { Participant, User } from '../../app/client-db.js';
 import { createUserDialog } from './create-user-dialog.js';
 import { DartDropdownItemElement } from './dropdown-element.js';
-import { Participant } from './play-page.js';
+import { DartPlayElement } from './play-page.js';
 
 
 export class HeaderDropdown {
@@ -17,7 +18,7 @@ export class HeaderDropdown {
 		public handleKeydown: (ev: KeyboardEvent) => void,
 	) {}
 
-	public render = (host: HTMLElement, par: Participant, index: number, items: string[]) => {
+	public render = (host: DartPlayElement, par: Participant, index: number, items: () => User[]) => {
 		return html`
 		<dart-dropdown
 			openOnInput
@@ -30,9 +31,9 @@ export class HeaderDropdown {
 			@select-item=${ this.handleSelectItem }
 			@clear      =${ this.handleClear }
 		>
-			${ repeat(items.filter(u => {
+			${ repeat(items().filter(u => {
 				const [ uUpper, nameUpper ] = [
-					u.toUpperCase(),
+					u.username.toUpperCase(),
 					par.player.name.toUpperCase(),
 				];
 
@@ -40,13 +41,13 @@ export class HeaderDropdown {
 					uUpper.endsWith(nameUpper) ||
 					uUpper.includes(par.player.name.toUpperCase());
 			}), u => u, (u) => html`
-			<dart-dropdown-item .value=${ u }>${ u }</dart-dropdown-item>
+			<dart-dropdown-item .value=${ u }>${ u.username }</dart-dropdown-item>
 			`) }
 
 			<dart-dropdown-item
 				slot="action"
-				@click=${ () => createUserDialog(host) }
-				${ onEnter(() => createUserDialog(host)) }
+				@click=${ createUserDialog.bind(host) }
+				${ onEnter(createUserDialog.bind(host)) }
 			>
 				Create user
 			</dart-dropdown-item>

@@ -1,4 +1,3 @@
-import { faker } from '@faker-js/faker';
 import { range } from '@roenlie/mimic-core/array';
 import { CustomEventOf, EventOf } from '@roenlie/mimic-core/dom';
 import { invariant } from '@roenlie/mimic-core/validation';
@@ -12,40 +11,22 @@ import { live } from 'lit/directives/live.js';
 import { map } from 'lit/directives/map.js';
 import { when } from 'lit/directives/when.js';
 
+import { Participant, Player, Score, User } from '../../app/client-db.js';
 import { DartDropdownElement, DartDropdownItemElement } from './dropdown-element.js';
 import { HeaderDropdown } from './header-dropdown.js';
+import { MimicDB } from './mimic-db.js';
 
 includeCE(IconElement, DartDropdownElement);
 
 
 declare global { interface HTMLElementTagNameMap { 'dart-play-page': DartPlayElement; } }
 
-export type Player = {
-	id: string;
-	name: string;
-}
-
-export type Score = {
-	total: number;
-	sum: number;
-	calculation: string;
-}
-
-export type Participant = {
-	player: Player;
-	goal: number;
-	placement: number;
-	score: Score[];
-};
-
-
-const usernames = range(0, 100).map(() => faker.person.firstName());
-
 
 @customElement('dart-play-page')
 export class DartPlayElement extends LitElement {
 
 	@state() protected goal = 250;
+	@state() protected users: User[] = [];
 	@queryAll('article ol') protected listEls: HTMLOListElement[];
 	protected selected?: {player: Player; columnIndex: number; rowIndex: number;};
 	protected participants: Participant[] = [
@@ -70,6 +51,8 @@ export class DartPlayElement extends LitElement {
 	public override connectedCallback(): void {
 		super.connectedCallback();
 		window.addEventListener('keydown', this.handlePageKeydown);
+
+		this.retrieveUsers();
 	}
 
 	public override disconnectedCallback(): void {
@@ -273,6 +256,14 @@ export class DartPlayElement extends LitElement {
 
 		return sanitizedExpr;
 	}
+
+	protected async retrieveUsers() {
+		const users = await MimicDB.connect('dart')
+			.collection(User)
+			.getAll();
+
+		this.users = users;
+	}
 	//#endregion
 
 
@@ -290,6 +281,7 @@ export class DartPlayElement extends LitElement {
 		ev: EventOf<HTMLInputElement>,
 		participant: Participant,
 	) {
+		participant.player.id = '';
 		participant.player.name = ev.target.value;
 		this.requestUpdate();
 	}
@@ -298,7 +290,18 @@ export class DartPlayElement extends LitElement {
 		ev: CustomEventOf<any, DartDropdownItemElement>,
 		participant: Participant,
 	) {
-		participant.player.name = ev.target.value;
+		const value = ev.target.value as User;
+
+		participant.player = {
+			id:   value.id,
+			name: value.username,
+		};
+
+		const path = ev.composedPath();
+		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
+		if (dropdown)
+			dropdown.disabled = true;
+
 		this.requestUpdate();
 	}
 
@@ -306,7 +309,14 @@ export class DartPlayElement extends LitElement {
 		ev: CustomEventOf<any, DartDropdownItemElement>,
 		participant: Participant,
 	) {
+		participant.player.id = '';
 		participant.player.name = '';
+
+		const path = ev.composedPath();
+		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
+		if (dropdown)
+			dropdown.disabled = false;
+
 		this.requestUpdate();
 	}
 
@@ -503,7 +513,7 @@ export class DartPlayElement extends LitElement {
 			(ev) => this.handleHeaderSelect(ev, par),
 			(ev) => this.handleHeaderClear(ev, par),
 			(ev) => this.handleHeaderKeydown(ev),
-		).render(this, par, index, usernames);
+		).render(this, par, index, () => this.users);
 	};
 
 	public override render() {
