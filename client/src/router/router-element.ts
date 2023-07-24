@@ -22,16 +22,10 @@ export class DartRouterElement extends LitElement {
 				{
 					path:     '/',
 					redirect: '/play',
-					action:   () => {
-						console.log('nei');
-					},
 				},
 				{
 					path:     '',
 					redirect: '/play',
-					action:   () => {
-						console.log('HEI');
-					},
 				},
 				{
 					path:      '/play',
@@ -39,9 +33,9 @@ export class DartRouterElement extends LitElement {
 					action:    () => void import('../pages/play/play-page.js'),
 				},
 				{
-					path:      '/scoreboard',
-					component: 'dart-scoreboard-page',
-					action:    () => void import('../pages/scoreboard/scoreboard-page.js'),
+					path:      '/leaderboard',
+					component: 'dart-leaderboard-page',
+					action:    () => void import('../pages/leaderboards/leaderboard-page.js'),
 				},
 			],
 		},

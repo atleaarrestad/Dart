@@ -50,5 +50,6 @@
 		"titleBar.inactiveForeground": "#e7e7e799"
 	},
 	"peacock.color": "rgb(30,30,30)",
-	"editor.tabSize": 3
+	"editor.tabSize": 3,
+	"lit-plugin.rules.no-invalid-css": "off"
 }

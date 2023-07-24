@@ -24,7 +24,7 @@ export class DartLayoutElement extends LitElement {
 				<mm-icon url="/Dart/target.svg"></mm-icon>
 				<span>Play</span>
 			</a>
-			<a href="/Dart/scoreboard">
+			<a href="/Dart/leaderboard">
 				<mm-icon url="/Dart/chart-pipe.svg"></mm-icon>
 				<span>Score</span>
 			</a>
@@ -49,14 +49,14 @@ export class DartLayoutElement extends LitElement {
 			grid-template-columns: max-content 1fr;
 			grid-template-rows: 1fr;
 
-			background-color: rgb(250 250 250);
+			background-color: rgb(255, 252, 239);
 		}
 		nav {
 			display: flex;
 			flex-flow: column nowrap;
 			align-items: center;
 			width: 75px;
-			border-right: 1px solid rgb(0 0 0 / 50%);
+			border-right: 2px solid rgb(0 0 0 / 70%);
 			padding-block: 12px;
 			gap: 12px;
 		}

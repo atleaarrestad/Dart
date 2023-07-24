@@ -1,6 +1,5 @@
 import { emitEvent, EventOf } from '@roenlie/mimic-core/dom';
 import { IconElement } from '@roenlie/mimic-elements/icon';
-import { includeCE } from '@roenlie/mimic-lit/injectable';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -9,7 +8,7 @@ import { live } from 'lit/directives/live.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { when } from 'lit/directives/when.js';
 
-includeCE(IconElement);
+[ IconElement ];
 
 
 declare global { interface HTMLElementTagNameMap {
@@ -19,14 +18,14 @@ declare global { interface HTMLElementTagNameMap {
 
 
 @customElement('dart-dropdown')
-export class DartDropdownElement extends LitElement {
+export default class DartDropdownElement extends LitElement {
 
 	@property() public name?: string;
 	@property() public value?: string;
 	@property() public height?: string;
 	@property() public placeholder?: string;
 	@property({ type: Boolean }) public disabled?: boolean;
-	@property({ type: Boolean }) public writeLock?: boolean;
+	@property({ type: Boolean }) public showClearWhenDisabled?: boolean;
 	@property({ type: Boolean }) public openOnFocus?: boolean;
 	@property({ type: Boolean }) public openOnInput?: boolean;
 	@property({ type: Boolean }) public closeOnSelect?: boolean;
@@ -47,7 +46,7 @@ export class DartDropdownElement extends LitElement {
 	}
 
 	public override focus(options?: FocusOptions): void {
-		if (this.disabled) {
+		if (this.disabled && this.showClearWhenDisabled) {
 			const buttonEl = this.renderRoot
 				.querySelector<HTMLButtonElement>('input-container button');
 
@@ -124,6 +123,7 @@ export class DartDropdownElement extends LitElement {
 				this.activeEl?.dispatchEvent(event);
 			}
 			else if (this.activeEl) {
+				ev.preventDefault();
 				this.selectItem(this.activeEl);
 			}
 		}
@@ -192,15 +192,16 @@ export class DartDropdownElement extends LitElement {
 			<input
 				placeholder=${ ifDefined(this.placeholder) }
 				.value     =${ live(this.value ?? '') }
-				?disabled  =${ this.disabled || this.writeLock }
+				?disabled  =${ this.disabled }
 				@input     =${ this.handleInput }
 				@keydown   =${ this.handleInputKeydown }
 				@focus     =${ this.handleFocus }
 				@blur      =${ this.handleBlur }
 			/>
-			${ when(this.value, () => html`
+			${ when((this.value && this.showClearWhenDisabled && this.disabled) ||
+				(this.value && !this.disabled), () => html`
 			<button
-				tabindex=${ this.writeLock ? '0' : '-1' }
+				tabindex=${ this.disabled && this.showClearWhenDisabled ? '0' : '-1' }
 				@mousedown=${ (ev: MouseEvent) => ev.preventDefault() }
 				@click=${ () => emitEvent(this, 'clear') }
 			>
@@ -260,6 +261,9 @@ export class DartDropdownElement extends LitElement {
 			grid-column: 1/3;
 			grid-row: 1/2;
 		}
+		input-container input:focus-within {
+			box-shadow: inset 0 0 2px black;
+		}
 		input-container button {
 			grid-column: 2/3;
 			grid-row: 1/2;
@@ -270,8 +274,9 @@ export class DartDropdownElement extends LitElement {
 			cursor: pointer;
 		}
 		input-container button:focus-visible {
-			outline: 1px solid teal;
-			outline-offset: 1px;
+			outline: 1px solid rgb(200 200 200 / 50%);
+			border-radius: 999px;
+			box-shadow: 0 0 3px 3px rgb(0 0 0 / 50%);
 		}
 		input-dropdown {
 			overflow: hidden;
@@ -279,7 +284,7 @@ export class DartDropdownElement extends LitElement {
 			display: grid;
 			grid-template-rows: 1fr max-content;
 
-			background-color: rgb(182, 215, 121);
+			background-color: rgb(250, 250, 250);
 			border-bottom-left-radius: 8px;
 			border-bottom-right-radius: 8px;
 			border: 1px solid black;
@@ -323,11 +328,10 @@ export class DartDropdownItemElement extends LitElement {
 			border: 1px solid transparent;
 		}
 		:host(:hover) {
-			background-color: rgb(138, 163, 92);
+			background-color: rgb(180 204 185 / 25%);
 		}
 		:host(.active) {
-			background-color: rgb(94, 111, 63);
-			color: white;
+			background-color: rgb(180 204 185);
 		}
 	`,
 	];

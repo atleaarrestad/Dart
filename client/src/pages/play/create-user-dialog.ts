@@ -1,24 +1,27 @@
 import { EventOf } from '@roenlie/mimic-core/dom';
 import { DialogElement } from '@roenlie/mimic-elements/dialog';
-import { includeCE } from '@roenlie/mimic-lit/injectable';
 import { css, html } from 'lit';
 
 import { User } from '../../app/client-db.js';
 import { MimicDB } from './mimic-db.js';
-import { DartPlayElement } from './play-page.js';
+import DartScoreboardElement from './scoreboard-element.js';
 
-includeCE(DialogElement);
+[ DialogElement ];
 
 
-export function createUserDialog(this: DartPlayElement, columnIndex: number) {
+export function createUserDialog(this: DartScoreboardElement, columnIndex: number) {
 	const dialogEl = document.createElement('mm-dialog');
+
 	dialogEl.modal = true;
 	dialogEl.closeOnBlur = true;
-	dialogEl.createConfig(() => ({
-		canSubmit: false,
-		username:  '',
-		alias:     '',
-	})).actions((dialog, state) => {
+
+	dialogEl.createConfig(() => {
+		return {
+			canSubmit: false,
+			username:  '',
+			alias:     '',
+		};
+	}).actions((dialog, state) => {
 		const isUsernameValid = async (username: string) => {
 			const user = await MimicDB.connect('dart')
 				.collection(User)
@@ -58,13 +61,9 @@ export function createUserDialog(this: DartPlayElement, columnIndex: number) {
 		};
 
 		dialog.addEventListener('close', () => {
-			// Have to do this focus dance or else focus wont be regained the in the dropdown.
-			// TODO, find a better solution to this.
-			columnIndex === (this.participants.length - 1)
-				? this.getListField(0, 0)?.focus()
-				: this.getHeaderField(columnIndex + 1)?.focus();
-
-			this.getHeaderField(columnIndex)?.focus();
+			// Have to change focus to a new element before refocusing.
+			this.focusListField(0, 0);
+			this.focusHeaderField(columnIndex);
 		}, { once: true });
 
 		return {
