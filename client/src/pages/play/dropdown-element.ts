@@ -26,6 +26,7 @@ export class DartDropdownElement extends LitElement {
 	@property() public height?: string;
 	@property() public placeholder?: string;
 	@property({ type: Boolean }) public disabled?: boolean;
+	@property({ type: Boolean }) public writeLock?: boolean;
 	@property({ type: Boolean }) public openOnFocus?: boolean;
 	@property({ type: Boolean }) public openOnInput?: boolean;
 	@property({ type: Boolean }) public closeOnSelect?: boolean;
@@ -46,7 +47,15 @@ export class DartDropdownElement extends LitElement {
 	}
 
 	public override focus(options?: FocusOptions): void {
-		this.inputEl?.focus(options);
+		if (this.disabled) {
+			const buttonEl = this.renderRoot
+				.querySelector<HTMLButtonElement>('input-container button');
+
+			buttonEl?.focus();
+		}
+		else {
+			this.inputEl?.focus(options);
+		}
 	}
 
 	protected focusItem(item?: DartDropdownItemElement) {
@@ -85,6 +94,7 @@ export class DartDropdownElement extends LitElement {
 		if (ev.code === 'ArrowUp' || ev.code === 'ArrowDown') {
 			ev.preventDefault();
 
+			const wasClosed = !this.open;
 			if (!this.open) {
 				this.open = true;
 				await this.updateComplete;
@@ -100,11 +110,10 @@ export class DartDropdownElement extends LitElement {
 					? this.activeEl.previousElementSibling
 					: this.activeEl.nextElementSibling;
 
-				if (nextEl instanceof DartDropdownItemElement) {
+				if (!wasClosed && nextEl instanceof DartDropdownItemElement)
 					this.focusItem(nextEl);
 
-					this.activeEl.scrollIntoView({ block: 'nearest' });
-				}
+				this.activeEl.scrollIntoView({ block: 'nearest' });
 			}
 		}
 
@@ -163,7 +172,9 @@ export class DartDropdownElement extends LitElement {
 		ev.preventDefault();
 
 		const path = ev.composedPath();
-		const el = path.find((el): el is DartDropdownItemElement => el instanceof DartDropdownItemElement);
+		const el = path.find((el): el is DartDropdownItemElement =>
+			el instanceof DartDropdownItemElement);
+
 		if (el?.assignedSlot?.name)
 			return;
 
@@ -181,7 +192,7 @@ export class DartDropdownElement extends LitElement {
 			<input
 				placeholder=${ ifDefined(this.placeholder) }
 				.value     =${ live(this.value ?? '') }
-				?disabled  =${ this.disabled }
+				?disabled  =${ this.disabled || this.writeLock }
 				@input     =${ this.handleInput }
 				@keydown   =${ this.handleInputKeydown }
 				@focus     =${ this.handleFocus }
@@ -189,7 +200,7 @@ export class DartDropdownElement extends LitElement {
 			/>
 			${ when(this.value, () => html`
 			<button
-				tabindex="-1"
+				tabindex=${ this.writeLock ? '0' : '-1' }
 				@mousedown=${ (ev: MouseEvent) => ev.preventDefault() }
 				@click=${ () => emitEvent(this, 'clear') }
 			>
@@ -256,6 +267,7 @@ export class DartDropdownElement extends LitElement {
 			display: grid;
 			place-items: center;
 			margin-right: 4px;
+			cursor: pointer;
 		}
 		input-container button:focus-visible {
 			outline: 1px solid teal;

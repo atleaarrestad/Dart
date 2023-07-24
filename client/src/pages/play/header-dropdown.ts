@@ -46,8 +46,8 @@ export class HeaderDropdown {
 
 			<dart-dropdown-item
 				slot="action"
-				@click=${ createUserDialog.bind(host) }
-				${ onEnter(createUserDialog.bind(host)) }
+				@click=${ createUserDialog.bind(host, index) }
+				${ onEnter(createUserDialog.bind(host, index)) }
 			>
 				Create user
 			</dart-dropdown-item>

@@ -10,7 +10,7 @@ import { DartPlayElement } from './play-page.js';
 includeCE(DialogElement);
 
 
-export function createUserDialog(this: DartPlayElement) {
+export function createUserDialog(this: DartPlayElement, columnIndex: number) {
 	const dialogEl = document.createElement('mm-dialog');
 	dialogEl.modal = true;
 	dialogEl.closeOnBlur = true;
@@ -52,10 +52,20 @@ export function createUserDialog(this: DartPlayElement) {
 					username: state.username,
 				}));
 
-			dialog.close();
-
 			this.retrieveUsers();
+
+			dialog.close();
 		};
+
+		dialog.addEventListener('close', () => {
+			// Have to do this focus dance or else focus wont be regained the in the dropdown.
+			// TODO, find a better solution to this.
+			columnIndex === (this.participants.length - 1)
+				? this.getListField(0, 0)?.focus()
+				: this.getHeaderField(columnIndex + 1)?.focus();
+
+			this.getHeaderField(columnIndex)?.focus();
+		}, { once: true });
 
 		return {
 			isUsernameValid,
@@ -65,18 +75,18 @@ export function createUserDialog(this: DartPlayElement) {
 		};
 	}).template({
 		render: (dialog, state, actions) => html`
-			<h3>
-				Create a new Player
-			</h3>
-			<user-form>
-				<input placeholder="username" @input=${ actions.handleUsernameInput } />
-				<input placeholder="alias" @input=${ actions.handleAliasInput } />
-				<form-actions>
-					<button ?disabled=${ !state.canSubmit } @click=${ actions.submit }>Submit</button>
-					<button @click=${ () => dialog.close() }>Cancel</button>
-				</form-actions>
-			</user-form>
-			`,
+		<h3>
+			Create a new Player
+		</h3>
+		<user-form>
+			<input placeholder="username" @input=${ actions.handleUsernameInput } />
+			<input placeholder="alias" @input=${ actions.handleAliasInput } />
+			<form-actions>
+				<button ?disabled=${ !state.canSubmit } @click=${ actions.submit }>Submit</button>
+				<button @click=${ () => dialog.close() }>Cancel</button>
+			</form-actions>
+		</user-form>
+		`,
 		style: css`
 			.base {
 				--mm-dialog-color: var(--on-surface);

@@ -289,6 +289,7 @@ export class DartPlayElement extends LitElement {
 	protected handleHeaderSelect(
 		ev: CustomEventOf<any, DartDropdownItemElement>,
 		participant: Participant,
+		index: number,
 	) {
 		const value = ev.target.value as User;
 
@@ -300,7 +301,12 @@ export class DartPlayElement extends LitElement {
 		const path = ev.composedPath();
 		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
 		if (dropdown)
-			dropdown.disabled = true;
+			dropdown.writeLock = true;
+
+		if (index === (this.participants.length - 1))
+			this.getListField(0, 0)?.focus();
+		else
+			this.getHeaderField(index + 1)?.focus();
 
 		this.requestUpdate();
 	}
@@ -308,6 +314,7 @@ export class DartPlayElement extends LitElement {
 	protected handleHeaderClear(
 		ev: CustomEventOf<any, DartDropdownItemElement>,
 		participant: Participant,
+		index: number,
 	) {
 		participant.player.id = '';
 		participant.player.name = '';
@@ -315,9 +322,10 @@ export class DartPlayElement extends LitElement {
 		const path = ev.composedPath();
 		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
 		if (dropdown)
-			dropdown.disabled = false;
+			dropdown.writeLock = false;
 
 		this.requestUpdate();
+		this.updateComplete.then(() => this.getHeaderField(index)?.focus());
 	}
 
 	protected handleScoreInput(
@@ -510,8 +518,8 @@ export class DartPlayElement extends LitElement {
 	protected HeaderDropdown = (par: Participant, index: number) => {
 		return new HeaderDropdown(
 			(ev) => this.handleHeaderInput(ev, par),
-			(ev) => this.handleHeaderSelect(ev, par),
-			(ev) => this.handleHeaderClear(ev, par),
+			(ev) => this.handleHeaderSelect(ev, par, index),
+			(ev) => this.handleHeaderClear(ev, par, index),
 			(ev) => this.handleHeaderKeydown(ev),
 		).render(this, par, index, () => this.users);
 	};
