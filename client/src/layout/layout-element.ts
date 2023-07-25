@@ -25,8 +25,12 @@ export class DartLayoutElement extends LitElement {
 				<span>Play</span>
 			</a>
 			<a href="/Dart/leaderboard">
-				<mm-icon url="/Dart/chart-pipe.svg"></mm-icon>
+				<mm-icon url="/Dart/trophy.svg"></mm-icon>
 				<span>Score</span>
+			</a>
+			<a href="/Dart/game-log">
+				<mm-icon url="/Dart/open-book.svg"></mm-icon>
+				<span>Log</span>
 			</a>
 		</nav>
 

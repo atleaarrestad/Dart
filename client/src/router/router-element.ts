@@ -37,6 +37,11 @@ export class DartRouterElement extends LitElement {
 					component: 'dart-leaderboard-page',
 					action:    () => void import('../pages/leaderboards/leaderboard-page.js'),
 				},
+				{
+					path:      '/game-log',
+					component: 'dart-game-log-page',
+					action:    () => void import('../pages/game-log/game-log-page.js'),
+				},
 			],
 		},
 	];

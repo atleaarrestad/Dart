@@ -178,7 +178,7 @@ export default class DartScoreboardElement extends LitElement {
 
 	protected ensureCorrectRowAmount() {
 		const longestScore = this.participants.reduce((prev, cur) => {
-			return cur.score.length > prev ? cur.score.length : prev;
+			return Math.max(cur.score.filter(s => s.calculation).length, prev);
 		}, 0);
 
 		// Make sure all participants have the same about of score entries.
@@ -230,7 +230,7 @@ export default class DartScoreboardElement extends LitElement {
 
 	protected sanitizeCalculation(input: string) {
 		const sanitizedExpr = input
-			.replace(/^0+/, '')           // remove all leading 0s
+			.replace(/^(0+){2,}/, '')     // remove all leading 0s
 			.replace(/[^0-9/+()*-]/g, '') // remove all invalid chars
 			.replace(/^[^(\d]+/, '')      // remove any leading non digits and non left parens
 			.replace(/[^)\d]+$/, '');     // remove any trailing non digits and non right parens
@@ -557,6 +557,7 @@ export default class DartScoreboardElement extends LitElement {
 		DartScoreboardElement.HeaderDropdownStyle,
 		css`
 		:host {
+			overflow: hidden;
 			display: grid;
 			padding: 8px;
 		}
