@@ -1,4 +1,4 @@
-import { MimicDB, MimicSchema } from '../pages/play/mimic-db.js';
+import { MimicDB, MimicSchema } from './mimic-db.js';
 
 
 export class User extends MimicSchema<User> {
@@ -6,8 +6,9 @@ export class User extends MimicSchema<User> {
 	public static override dbIdentifier = 'users';
 	public static override dbKey = 'id';
 	public id: string;
-	public username: string;
+	public name: string;
 	public alias: string;
+	public state: 'unregistered' | 'local' | 'online';
 
 }
 
@@ -19,36 +20,32 @@ export class Game extends MimicSchema<Game> {
 	public id: string;
 	public goal: number;
 	public datetime: Date;
-	public participants: Participant[];
+	public players: Player[];
+	public state: 'local' | 'online';
 
 }
 
-export type Player = {
-	id: string;
-	name: string;
-}
-
-export type Score = {
-	total: number;
+export type Round = {
 	sum: number;
 	calculation: string;
 }
 
-export type Participant = {
-	player: Player;
-	goal: number;
+export type Player = {
+	user: User;
 	placement: number;
-	score: Score[];
+	round: Round[];
 };
 
 
 MimicDB.setup('dart', (setup) => {
 	setup.createCollection(User, 'users', { autoIncrement: true })
-		.createIndex('username', 'username', { unique: true })
 		.createIndex('id', 'id', { unique: true })
+		.createIndex('name', 'name', { unique: true })
+		.createIndex('state', 'state')
 		.createIndex('alias', 'alias')
 		.mutate(() => {});
 
 	setup.createCollection(Game, 'games', { autoIncrement: true })
+		.createIndex('state', 'state')
 		.mutate(() => {});
 });

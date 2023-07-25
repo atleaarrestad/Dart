@@ -6,8 +6,8 @@ import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 
-import { Game, Participant } from '../../app/client-db.js';
-import { MimicDB } from './mimic-db.js';
+import { Game, Player, User } from '../../app/client-db.js';
+import { MimicDB } from '../../app/mimic-db.js';
 import DartScoreboardElement from './scoreboard-element.js';
 
 [ IconElement, DartScoreboardElement, DialogElement ];
@@ -21,21 +21,22 @@ declare global {
 @customElement('dart-play-page')
 export class DartPlayElement extends LitElement {
 
+	@query('dart-scoreboard') protected scoreboardEl: DartScoreboardElement;
 	@state() protected gameId = crypto.randomUUID();
 	@state() protected goal = 250;
-	@query('dart-scoreboard') protected scoreboardEl: DartScoreboardElement;
-	@state() protected participants: Participant[] = [
+	@state() protected players: Player[] = [
 		...range(0, 2).map(() => ({
-			player: {
-				id:   crypto.randomUUID(),
-				name: '',
-			},
+			user: new User({
+				id:    crypto.randomUUID(),
+				state: 'unregistered',
+				name:  '',
+				alias: '',
+			}),
 			goal:      this.goal,
 			placement: 0,
-			score:     [
+			round:     [
 				...range(0, 2).map(() => ({
 					sum:         0,
-					total:       0,
 					calculation: '',
 				})),
 			],
@@ -61,34 +62,34 @@ export class DartPlayElement extends LitElement {
 			.replace(/[^0-9]/g, '');
 
 		this.goal = parseInt(ev.target.value || '0');
-		this.participants.forEach(p => p.goal = this.goal);
 		this.requestUpdate();
 	}
 
 	protected handleClickAddPlayer() {
 		const longestScore = Math.max(
-			2, this.participants.reduce((p, c) => Math.max(p, c.score.length), 0),
+			2, this.players.reduce((p, c) => Math.max(p, c.round.length), 0),
 		);
 
-		this.participants.push({
-			goal:      this.goal,
+		this.players.push({
 			placement: 0,
-			player:    {
-				id:   crypto.randomUUID(),
-				name: '',
-			},
-			score: range(longestScore)
-				.map(() => ({ calculation: '', sum: 0, total: 0 })),
+			user:      new User({
+				id:    crypto.randomUUID(),
+				state: 'unregistered',
+				name:  '',
+				alias: '',
+			}),
+			round: range(longestScore)
+				.map(() => ({ calculation: '', sum: 0 })),
 		});
-		this.participants = [ ...this.participants ];
+		this.players = [ ...this.players ];
 
 		setTimeout(() => {
-			this.scoreboardEl.focusHeaderField(this.participants.length - 1);
+			this.scoreboardEl.focusHeaderField(this.players.length - 1);
 		});
 	}
 
 	protected handleClickRemovePlayer(index: number) {
-		if (this.participants[index]?.score.some(s => s.calculation)) {
+		if (this.players[index]?.round.some(s => s.calculation)) {
 			const remove = confirm('Player has recorded score in the active game. '
 				+ 'Are you sure you wish to remove them?');
 
@@ -97,16 +98,16 @@ export class DartPlayElement extends LitElement {
 		}
 
 
-		this.participants.splice(index, 1);
-		this.participants = [ ...this.participants ];
+		this.players.splice(index, 1);
+		this.players = [ ...this.players ];
 
 		setTimeout(() => {
-			this.scoreboardEl.focusHeaderField(this.participants.length - 1);
+			this.scoreboardEl.focusHeaderField(this.players.length - 1);
 		});
 	}
 
 	protected handleClickRestartGame() {
-		const activeGame = this.participants.some(par => par.score.some(s => s.calculation));
+		const activeGame = this.players.some(par => par.round.some(s => s.calculation));
 		if (activeGame) {
 			const reset = confirm('Game currently in progress. Are you sure you wish to reset?');
 			if (!reset)
@@ -116,17 +117,16 @@ export class DartPlayElement extends LitElement {
 		if (activeGame)
 			this.handleClickSaveGame();
 
-		this.participants.forEach(par => {
+		this.players.forEach(par => {
 			par.placement = 0;
-			par.score = [
+			par.round = [
 				...range(0, 2).map(() => ({
 					sum:         0,
-					total:       0,
 					calculation: '',
 				})),
 			];
 		});
-		this.participants = [ ...this.participants ];
+		this.players = [ ...this.players ];
 		this.gameId = crypto.randomUUID();
 
 		setTimeout(() => {
@@ -135,7 +135,7 @@ export class DartPlayElement extends LitElement {
 	}
 
 	protected async handleClickSaveGame() {
-		if (this.participants.every(par => par.score.length <= 2)) {
+		if (this.players.every(par => par.round.length <= 2)) {
 			alert('Cannot save a game with less than 2 rounds played.');
 
 			return;
@@ -185,10 +185,11 @@ export class DartPlayElement extends LitElement {
 		await MimicDB.connect('dart')
 			.collection(Game)
 			.put(new Game({
-				id:           this.gameId,
-				goal:         this.goal,
-				participants: this.participants,
-				datetime:     new Date(),
+				id:       this.gameId,
+				goal:     this.goal,
+				players:  this.players,
+				datetime: new Date(),
+				state:    'local',
 			}), this.gameId);
 
 		setTimeout(() => {
@@ -215,7 +216,7 @@ export class DartPlayElement extends LitElement {
 
 		if (ev.shiftKey && (ev.key === '_' || ev.key === '-')) {
 			ev.preventDefault();
-			this.handleClickRemovePlayer(this.participants.length - 1);
+			this.handleClickRemovePlayer(this.players.length - 1);
 		}
 	};
 	//#endregion
@@ -283,7 +284,7 @@ export class DartPlayElement extends LitElement {
 
 		<dart-scoreboard
 			.goal=${ this.goal }
-			.participants=${ this.participants }
+			.players=${ this.players }
 			@remove-player=${
 				(ev: CustomEvent<{index: number}>) =>
 					this.handleClickRemovePlayer(ev.detail.index)

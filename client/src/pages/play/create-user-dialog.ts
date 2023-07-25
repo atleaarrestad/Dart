@@ -3,7 +3,7 @@ import { DialogElement } from '@roenlie/mimic-elements/dialog';
 import { css, html } from 'lit';
 
 import { User } from '../../app/client-db.js';
-import { MimicDB } from './mimic-db.js';
+import { MimicDB } from '../../app/mimic-db.js';
 import DartScoreboardElement from './scoreboard-element.js';
 
 [ DialogElement ];
@@ -18,24 +18,24 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 	dialogEl.createConfig(() => {
 		return {
 			canSubmit: false,
-			username:  '',
+			name:      '',
 			alias:     '',
 		};
 	}).actions((dialog, state) => {
-		const isUsernameValid = async (username: string) => {
+		const isNameValid = async (username: string) => {
 			const user = await MimicDB.connect('dart')
 				.collection(User)
-				.getByIndex('username', username);
+				.getByIndex('name', username);
 
 			return !user;
 		};
 
 		const handleUsernameInput = async (ev: EventOf<HTMLInputElement>) => {
 			const value = ev.target.value;
-			const isValid = await isUsernameValid(value);
+			const isValid = await isNameValid(value);
 			if (isValid && value) {
 				state.canSubmit = true;
-				state.username = value;
+				state.name = value;
 			}
 			else {
 				state.canSubmit = false;
@@ -50,9 +50,10 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 			await MimicDB.connect('dart')
 				.collection(User)
 				.add(new User({
-					id:       crypto.randomUUID(),
-					alias:    state.alias,
-					username: state.username,
+					id:    crypto.randomUUID(),
+					state: 'local',
+					name:  state.name,
+					alias: state.alias,
 				}));
 
 			this.retrieveUsers();
@@ -67,7 +68,7 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 		}, { once: true });
 
 		return {
-			isUsernameValid,
+			isUsernameValid: isNameValid,
 			handleUsernameInput,
 			handleAliasInput,
 			submit,
@@ -78,7 +79,7 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 			Create a new Player
 		</h3>
 		<user-form>
-			<input placeholder="username" @input=${ actions.handleUsernameInput } />
+			<input placeholder="name" @input=${ actions.handleUsernameInput } />
 			<input placeholder="alias" @input=${ actions.handleAliasInput } />
 			<form-actions>
 				<button ?disabled=${ !state.canSubmit } @click=${ actions.submit }>Submit</button>

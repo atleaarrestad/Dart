@@ -6,7 +6,7 @@ import { map } from 'lit/directives/map.js';
 import { when } from 'lit/directives/when.js';
 
 import { Game } from '../../app/client-db.js';
-import { MimicDB } from '../play/mimic-db.js';
+import { MimicDB } from '../../app/mimic-db.js';
 
 
 @customElement('dart-game-log-page')
@@ -32,6 +32,10 @@ export class DartGameLogPage extends LitElement {
 		this.selectedGame = game;
 	}
 
+	protected prettifyDate(date: Date) {
+		return date.toISOString().split('.')[0]?.replace('T', ' ') ?? '';
+	}
+
 
 	public override render() {
 		return html`
@@ -39,7 +43,7 @@ export class DartGameLogPage extends LitElement {
 			<ol>
 				${ map(this.games, game => html`
 				<li @click=${ this.handleSelectGame.bind(this, game) }>
-					${ game.datetime.toISOString().split('T')[0] }
+					${ this.prettifyDate(game.datetime) }
 				</li>
 				`) }
 			</ol>
@@ -48,7 +52,7 @@ export class DartGameLogPage extends LitElement {
 		<game-info>
 		${ when(this.selectedGame, () => {
 			const game = this.selectedGame!;
-			const roundCount = game.participants.reduce((p, c) => Math.max(p, c.score.length), 0);
+			const roundCount = game.players.reduce((p, c) => Math.max(p, c.round.length), 0);
 
 			return html`
 			<game-details>
@@ -56,7 +60,7 @@ export class DartGameLogPage extends LitElement {
 					GameID: ${ game.id }
 				</div>
 				<div>
-					Game DateTime: ${ game.datetime.toISOString().split('.')[0]?.replace('T', ' ') }
+					Game DateTime: ${ this.prettifyDate(game.datetime) }
 				</div>
 				<div>
 					Game Goal: ${ game.goal }
@@ -65,13 +69,13 @@ export class DartGameLogPage extends LitElement {
 			<player-details>
 				<details-header>
 					<div>Round</div>
-					${ map(game.participants, par => html`
+					${ map(game.players, par => html`
 					<header-field>
 						<div>
 							placement: ${ par.placement > 0 ? par.placement : 'DNF' }
 						</div>
 						<div>
-							${ par.player.name }
+							${ par.user.name }
 						</div>
 					</header-field>
 					`) }
@@ -81,9 +85,9 @@ export class DartGameLogPage extends LitElement {
 					${ map(range(roundCount), round => html`
 					<body-row>
 						<div>${ round }</div>
-						${ map(game.participants, par => html`
+						${ map(game.players, par => html`
 						<row-field>
-							${ par.score[round]?.sum ?? 0 }
+							${ par.round[round]?.sum ?? 0 }
 						</row-field>
 						`) }
 					</body-row>
@@ -101,7 +105,7 @@ export class DartGameLogPage extends LitElement {
 		css`
 		:host {
 			display: grid;
-			grid-template-columns: max-content 1fr;
+			grid-template-columns: 150px 1fr;
 		}
 		game-list {
 			display: grid;
@@ -126,6 +130,8 @@ export class DartGameLogPage extends LitElement {
 			cursor: pointer;
 			user-select: none;
 			border-radius: 4px;
+			display: grid;
+			text-align: center;
 		}
 		game-info {
 			display: grid;

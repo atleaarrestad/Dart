@@ -42,8 +42,6 @@ export class MimicDB {
 						setup?.__execute(db);
 					}
 				}
-
-				console.log(this.#setups);
 			};
 		});
 
@@ -190,8 +188,6 @@ class Collection<T extends typeof MimicSchema<any>> {
 	}
 
 	public async add<TKey extends IDBValidKey>(item: InstanceType<T>, key?: TKey): Promise<TKey> {
-		console.log('trying to add');
-
 		const coll = await this.collection('readwrite');
 		const promise = await new Promise<TKey>((res, rej) => {
 			const req = coll.add(item, key ?? (item as any)[this.schema.dbKey]);

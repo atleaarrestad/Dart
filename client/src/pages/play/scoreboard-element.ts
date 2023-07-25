@@ -10,10 +10,10 @@ import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 
-import { Participant, Player, Score, User } from '../../app/client-db.js';
+import { Player, Round, User } from '../../app/client-db.js';
+import { MimicDB } from '../../app/mimic-db.js';
 import { createUserDialog } from './create-user-dialog.js';
 import DartDropdownElement, { DartDropdownItemElement } from './dropdown-element.js';
-import { MimicDB } from './mimic-db.js';
 
 
 declare global { interface HTMLElementTagNameMap {
@@ -26,10 +26,10 @@ export default class DartScoreboardElement extends LitElement {
 
 	//#region Properties
 	@property({ type: Number }) public goal: number = 0;
-	@property({ type: Array }) public participants: Participant[] = [];
+	@property({ type: Array }) public players: Player[] = [];
 	@state() protected users: User[] = [];
 	@queryAll('article ol') protected listEls: HTMLOListElement[];
-	protected selected?: {player: Player; columnIndex: number; rowIndex: number;};
+	protected selected?: {columnIndex: number; rowIndex: number;};
 	//#endregion
 
 
@@ -54,7 +54,7 @@ export default class DartScoreboardElement extends LitElement {
 
 	//#region Logic
 	protected getHeaderField(columnIndex: number): HTMLInputElement | null {
-		const playerId = this.participants[columnIndex]?.player.id ?? '';
+		const playerId = this.players[columnIndex]?.user.id ?? '';
 
 		return this.renderRoot.querySelector<HTMLInputElement>(
 			'[name="header|' + playerId + '"]',
@@ -62,7 +62,7 @@ export default class DartScoreboardElement extends LitElement {
 	}
 
 	protected getListField(columnIndex: number, rowIndex: number): HTMLInputElement | null {
-		const playerId = this.participants[columnIndex]?.player.id ?? '';
+		const playerId = this.players[columnIndex]?.user.id ?? '';
 
 		return this.renderRoot.querySelector<HTMLInputElement>(
 			'[name="field|' + playerId + '|' + rowIndex + '"]',
@@ -72,10 +72,10 @@ export default class DartScoreboardElement extends LitElement {
 	protected nextIsInvalid(next: { columnIndex: number; rowIndex: number; }) {
 		if (!next)
 			return true;
-		if (this.participants[next.columnIndex]?.placement)
+		if (this.players[next.columnIndex]?.placement)
 			return true;
 
-		return !this.participants[next.columnIndex];
+		return !this.players[next.columnIndex];
 	}
 
 	protected moveListFocus(direction: 'backwards' | 'forwards'): boolean {
@@ -100,7 +100,7 @@ export default class DartScoreboardElement extends LitElement {
 					}
 					else if (next.columnIndex === 0 && next.rowIndex > 0) {
 						next = {
-							columnIndex: this.participants.length - 1,
+							columnIndex: this.players.length - 1,
 							rowIndex:    next.rowIndex - 1,
 						};
 					}
@@ -134,16 +134,16 @@ export default class DartScoreboardElement extends LitElement {
 				};
 
 				do {
-					const highestRowIndex = this.participants
-						.reduce((pre, cur) => cur.score.length > pre ? cur.score.length : pre, 0);
+					const highestRowIndex = this.players
+						.reduce((pre, cur) => cur.round.length > pre ? cur.round.length : pre, 0);
 
-					if (next.columnIndex === this.participants.length - 1 &&
+					if (next.columnIndex === this.players.length - 1 &&
 						next.rowIndex === highestRowIndex
 					) {
 						// End of available fields. Exit.
 						return undefined;
 					}
-					else if (next.columnIndex === this.participants.length - 1 &&
+					else if (next.columnIndex === this.players.length - 1 &&
 						next.rowIndex < highestRowIndex
 					) {
 						next = {
@@ -177,55 +177,61 @@ export default class DartScoreboardElement extends LitElement {
 	}
 
 	protected ensureCorrectRowAmount() {
-		const longestScore = this.participants.reduce((prev, cur) => {
-			return Math.max(cur.score.filter(s => s.calculation).length, prev);
+		const longestScore = this.players.reduce((prev, cur) => {
+			return Math.max(cur.round.filter(s => s.calculation).length, prev);
 		}, 0);
 
-		// Make sure all participants have the same about of score entries.
-		this.participants.forEach(par => {
-			const lastTotal = par.score.at(-1)?.total ?? 0;
-
-			while (par.score.length < longestScore) {
-				par.score.push({
-					calculation: '',
-					sum:         0,
-					total:       lastTotal,
-				});
-			}
+		// Make sure all players have the same about of score entries.
+		this.players.forEach(par => {
+			while (par.round.length < longestScore)
+				par.round.push({ calculation: '', sum: 0 });
 		});
 
 		// If there is not an empty line after the last line with calculations
 		// Or if there is only one line present.
 		// Increment all score entries by one.
-		while (this.participants.some(par => {
-			return par.score.length < 2 || par.score.at(-1)?.calculation;
+		while (this.players.some(par => {
+			return par.round.length < 2 || par.round.at(-1)?.calculation;
 		})) {
-			this.participants.forEach(par => {
-				const lastTotal = par.score.at(-1)?.total ?? 0;
-				par.score.push({
-					calculation: '',
-					sum:         0,
-					total:       lastTotal,
-				});
-			});
+			for (const player of this.players)
+				player.round.push({ calculation: '', sum: 0 });
 		}
 
 		// while there are two rows after eachother with all entries empty,
 		// and there are more than 2 lines
 		// remove the last row.
-		while (this.participants.every(par => {
-			return par.score.at(-1)?.calculation === '' &&
-				par.score.at(-2)?.calculation === ''
-				&& par.score.length > 2;
-		}))
-			this.participants.forEach(par => par.score.pop());
+		while (this.players.every(par => {
+			return par.round.at(-1)?.calculation === '' &&
+				par.round.at(-2)?.calculation === ''
+				&& par.round.length > 2;
+		})) {
+			for (const player of this.players)
+				player.round.pop();
+		}
+
+		// Make sure all rows except the last two have atleast '0' calculation
+		for (const player of this.players) {
+			player.round
+				.slice(0, -2)
+				.forEach(score => !score.calculation && (score.calculation = '0'));
+		}
 
 		this.requestUpdate();
 	}
 
-	protected findClosestTotal(participant: Participant) {
-		return participant.score
-			.findLast(s => s.total <= participant.goal)?.total ?? 0;
+	protected findClosestTotal(player: Player, toRound?: number) {
+		const scores = toRound !== undefined
+			? player.round.slice(0, toRound)
+			: player.round;
+
+		const total = scores.reduce((pre, cur) => {
+			if (pre + cur.sum <= this.goal)
+				pre += cur.sum;
+
+			return pre;
+		}, 0);
+
+		return total;
 	}
 
 	protected sanitizeCalculation(input: string) {
@@ -245,30 +251,75 @@ export default class DartScoreboardElement extends LitElement {
 
 		this.users = users;
 	}
+
+	protected relaxedStringCompare(strA: string, strB: string) {
+		const [ uUpper, nameUpper ] = [ strA.toUpperCase(), strB.toUpperCase() ];
+
+		return uUpper.startsWith(nameUpper) ||
+			uUpper.endsWith(nameUpper) ||
+			uUpper.includes(nameUpper);
+	}
+
+	protected isScoreInvalid(player: Player, round: number) {
+		let total = this.findClosestTotal(player, round);
+		total += (player.round[round]?.sum ?? 0);
+
+		return total > this.goal;
+	}
+
+	protected calculatePlacements() {
+		let length = 0;
+		for (const player of this.players) {
+			player.placement = 0;
+			let lastIndex = player.round.findLastIndex(s => s.calculation);
+			if (lastIndex > -1)
+				lastIndex += 1;
+
+			length = Math.max(length, lastIndex);
+		}
+
+		let placement = 1;
+		for (let i = 0; i < length; i++) {
+			let assignedPlacement = false;
+
+			this.players.forEach(player => {
+				const total = this.findClosestTotal(player, i + 1);
+				if (total === this.goal && player.placement === 0) {
+					player.placement = placement;
+					assignedPlacement = true;
+				}
+			});
+
+			if (assignedPlacement)
+				placement++;
+		}
+	}
 	//#endregion
 
 
 	//#region Handlers
 	protected handleHeaderInput(
-		participant: Participant,
+		player: Player,
 		ev: EventOf<HTMLInputElement>,
 	) {
-		participant.player.id = '';
-		participant.player.name = ev.target.value;
+		const value = ev.target.value;
+		player.user = new User({
+			id:    crypto.randomUUID(),
+			state: 'unregistered',
+			name:  value,
+			alias: value,
+		});
+
 		this.requestUpdate();
 	}
 
 	protected handleHeaderSelect(
-		participant: Participant,
+		player: Player,
 		index: number,
 		ev: CustomEventOf<any, DartDropdownItemElement>,
 	) {
 		const value = ev.target.value as User;
-
-		participant.player = {
-			id:   value.id,
-			name: value.username,
-		};
+		player.user = value;
 
 		const path = ev.composedPath();
 		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
@@ -277,7 +328,7 @@ export default class DartScoreboardElement extends LitElement {
 
 		this.requestUpdate();
 		setTimeout(() => {
-			if (index === (this.participants.length - 1))
+			if (index === (this.players.length - 1))
 				this.focusListField(0, 0);
 			else
 				this.focusHeaderField(index + 1);
@@ -285,14 +336,16 @@ export default class DartScoreboardElement extends LitElement {
 	}
 
 	protected handleHeaderClear(
-		participant: Participant,
+		player: Player,
 		index: number,
 		ev: CustomEventOf<any, DartDropdownItemElement>,
 	) {
-		participant.player = {
-			id:   crypto.randomUUID(),
-			name: '',
-		};
+		player.user = new User({
+			id:    crypto.randomUUID(),
+			state: 'unregistered',
+			name:  '',
+			alias: '',
+		});
 
 		const path = ev.composedPath();
 		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
@@ -309,9 +362,9 @@ export default class DartScoreboardElement extends LitElement {
 
 			const target = ev.target as HTMLInputElement | undefined;
 			const playerId = target?.name.split('|').at(-1);
-			const playerIndex = this.participants.findIndex(p => p.player.id === playerId);
+			const playerIndex = this.players.findIndex(p => p.user.id === playerId);
 
-			if (playerIndex === (this.participants.length - 1)) {
+			if (playerIndex === (this.players.length - 1)) {
 				ev.preventDefault();
 				this.moveListFocus('forwards');
 				this.moveListFocus('backwards');
@@ -320,7 +373,7 @@ export default class DartScoreboardElement extends LitElement {
 	}
 
 	protected handleScoreInput(
-		participant: Participant,
+		player: Player,
 		index: number,
 		ev: EventOf<HTMLInputElement>,
 	) {
@@ -333,64 +386,24 @@ export default class DartScoreboardElement extends LitElement {
 		try { sum = Math.floor(parseFloat(eval(sanitizedExpr) ?? 0)); }
 		catch { /*  */ }
 
-		participant.score[index] = {
-			...participant.score[index] ?? {},
-			calculation,
-			sum,
-			total: 0,
-		};
-
-		participant.score.forEach((score, i) => {
-			// find first previous with a valid score.
-			const previous = participant.score
-				.findLast((s, sI) => sI < i && s.total <= this.goal);
-
-			if (!previous)
-				score.total = 0;
-			else
-				score.total = previous.total;
-
-			score.total += score.sum;
-		});
+		player.round[index] = { calculation, sum };
 
 		this.ensureCorrectRowAmount();
 	}
 
 	protected handleScoreFocus(
-		participant: Participant,
 		columnIndex: number,
 		rowIndex: number,
 	) {
-		this.selected = {
-			player: participant.player,
-			columnIndex,
-			rowIndex,
-		};
-
+		this.selected = { columnIndex, rowIndex };
 		this.ensureCorrectRowAmount();
 	}
 
-	protected handleScoreBlur(participant: Participant, score: Score) {
+	protected handleScoreBlur(score: Round) {
 		this.selected = undefined;
 		score.calculation = this.sanitizeCalculation(score.calculation);
 
-		// If this participant reaches the goal on blur.
-		// Give them a placement.
-		// Else remove any placement they had been mistakenly given,
-		if (participant.score.at(-1)?.total === participant.goal) {
-			if (!participant.placement) {
-				participant.placement = this.participants
-					.reduce((pre, cur) => pre < cur.placement ? cur.placement : pre, 0) + 1;
-			}
-		}
-		else {
-			participant.placement = 0;
-		}
-
-		this.participants
-			.filter(par => par.placement)
-			.sort((a, b) => a.placement - b.placement)
-			.forEach((par, i) => par.placement = i + 1);
+		this.calculatePlacements();
 	}
 
 	protected handleListKeydown(ev: KeyboardEvent) {
@@ -414,7 +427,7 @@ export default class DartScoreboardElement extends LitElement {
 		if (ev.shiftKey) {
 			const success = this.moveListFocus('backwards');
 			if (!success)
-				this.focusHeaderField(this.participants.length - 1);
+				this.focusHeaderField(this.players.length - 1);
 		}
 		else {
 			this.moveListFocus('forwards');
@@ -426,27 +439,19 @@ export default class DartScoreboardElement extends LitElement {
 		for (const listEl of this.listEls)
 			listEl.scrollTop = target.scrollTop;
 	}
-
-	protected relaxedStringCompare(strA: string, strB: string) {
-		const [ uUpper, nameUpper ] = [ strA.toUpperCase(), strB.toUpperCase() ];
-
-		return uUpper.startsWith(nameUpper) ||
-			uUpper.endsWith(nameUpper) ||
-			uUpper.includes(nameUpper);
-	}
 	//#endregion
 
 
 	//#region Template
-	protected HeaderDropdownTemplate(par: Participant, index: number, items: () => User[]) {
+	protected HeaderDropdownTemplate(par: Player, index: number, items: () => User[]) {
 		return html`
 		<dart-dropdown
 			openOnInput
 			closeOnSelect
 			showClearWhenDisabled
 			placeholder =${ 'Player ' + (index + 1) }
-			name        =${ 'header|' + par.player.id }
-			.value      =${ par.player.name }
+			name        =${ 'header|' + par.user.id }
+			.value      =${ par.user.alias }
 			@clear      =${ this.handleHeaderClear.bind(this, par, index) }
 			@input      =${ this.handleHeaderInput.bind(this, par) }
 			@select-item=${ this.handleHeaderSelect.bind(this, par, index) }
@@ -454,14 +459,13 @@ export default class DartScoreboardElement extends LitElement {
 		>
 			${ repeat(
 				items()
-					.filter(u => !this.participants.find(p => p.player.id === u.id))
-					.filter(u => this.relaxedStringCompare(u.username, par.player.name)),
+					.filter(u => !this.players.find(p => p.user.id === u.id))
+					.filter(u => this.relaxedStringCompare(u.alias, par.user.alias)),
 				u => u,
 				u => html`
-				<dart-dropdown-item .value=${ u }>${ u.username }</dart-dropdown-item>
+				<dart-dropdown-item .value=${ u }>${ u.alias }</dart-dropdown-item>
 				`,
 			) }
-
 			<dart-dropdown-item
 				slot="action"
 				@click=${ createUserDialog.bind(this, index) }
@@ -485,10 +489,10 @@ export default class DartScoreboardElement extends LitElement {
 	public override render() {
 		return html`
 		<div class="table" @focusout=${ () => setTimeout(() => void this.requestUpdate()) }>
-			${ repeat(this.participants, par => par, (par, pId) => html`
+			${ repeat(this.players, par => par, (par, pId) => html`
 			<article
 				class=${ classMap({
-					winner: par.score.some(s => s.total === this.goal),
+					winner: this.findClosestTotal(par) === this.goal,
 				}) }
 			>
 				<header>
@@ -512,13 +516,13 @@ export default class DartScoreboardElement extends LitElement {
 				<output
 					class=${ classMap({
 						modified: !!(this.selected?.rowIndex !== undefined &&
-							((par.score[this.selected?.rowIndex]?.sum ?? 0) > 0)),
+							((par.round[this.selected?.rowIndex]?.sum ?? 0) > 0)),
 					}) }
 				>
 					${ (() => {
 						const closest = this.findClosestTotal(par);
 
-						return `${ closest } (${ closest - par.goal })`;
+						return `${ closest } (${ closest - this.goal })`;
 					})() }
 				</output>
 
@@ -531,16 +535,16 @@ export default class DartScoreboardElement extends LitElement {
 				</ol>
 
 				<ol @keydown=${ this.handleListKeydown } @scroll=${ this.handleListScroll }>
-					${ map(par.score, (score, sId) => html`
-					<li class=${ classMap({ invalid: score.total > this.goal }) }>
+					${ map(par.round, (score, sId) => html`
+					<li class=${ classMap({ invalid: this.isScoreInvalid(par, sId) }) }>
 						<span>${ sId + 1 }</span>
 						<input
-							name=${ 'field|' + par.player.id + '|' + sId }
+							name=${ 'field|' + par.user.id + '|' + sId }
 							tabindex="-1"
 							.value=${ live(score.calculation) }
 							@input=${ this.handleScoreInput.bind(this, par, sId) }
-							@focus=${ this.handleScoreFocus.bind(this, par, pId, sId) }
-							@blur=${ this.handleScoreBlur.bind(this, par, score) }
+							@focus=${ this.handleScoreFocus.bind(this, pId, sId) }
+							@blur=${ this.handleScoreBlur.bind(this, score) }
 						/>
 						<output>${ score.sum }</output>
 					</li>
