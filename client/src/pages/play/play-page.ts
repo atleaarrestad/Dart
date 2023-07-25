@@ -88,6 +88,15 @@ export class DartPlayElement extends LitElement {
 	}
 
 	protected handleClickRemovePlayer(index: number) {
+		if (this.participants[index]?.score.some(s => s.calculation)) {
+			const remove = confirm('Player has recorded score in the active game. '
+				+ 'Are you sure you wish to remove them?');
+
+			if (!remove)
+				return;
+		}
+
+
 		this.participants.splice(index, 1);
 		this.participants = [ ...this.participants ];
 
@@ -97,20 +106,24 @@ export class DartPlayElement extends LitElement {
 	}
 
 	protected handleClickRestartGame() {
-		if (this.participants.some(par => par.score.length > 2)) {
+		const activeGame = this.participants.some(par => par.score.some(s => s.calculation));
+		if (activeGame) {
 			const reset = confirm('Game currently in progress. Are you sure you wish to reset?');
 			if (!reset)
 				return;
 		}
 
+		if (activeGame)
+			this.handleClickSaveGame();
+
 		this.participants.forEach(par => {
 			par.placement = 0;
 			par.score = [
-				{
-					calculation: '',
+				...range(0, 2).map(() => ({
 					sum:         0,
 					total:       0,
-				},
+					calculation: '',
+				})),
 			];
 		});
 		this.participants = [ ...this.participants ];
@@ -190,6 +203,11 @@ export class DartPlayElement extends LitElement {
 			this.handleClickRestartGame();
 		}
 
+		if (ev.shiftKey && ev.code === 'KeyS') {
+			ev.preventDefault();
+			this.handleClickSaveGame();
+		}
+
 		if (ev.shiftKey && (ev.key === '?' || ev.key === '+')) {
 			ev.preventDefault();
 			this.handleClickAddPlayer();
@@ -236,7 +254,7 @@ export class DartPlayElement extends LitElement {
 					@click=${ this.handleClickRestartGame }
 				>
 					<mm-icon
-						url="/Dart/dash-circle.svg"
+						url="/Dart/trashcan.svg"
 					></mm-icon>
 					<span>Reset game</span>
 				</button>
@@ -246,7 +264,7 @@ export class DartPlayElement extends LitElement {
 					@click=${ this.handleClickSaveGame }
 				>
 					<mm-icon
-						url="/Dart/cloud-arrow-up.svg"
+						url="/Dart/cloud.svg"
 					></mm-icon>
 					<span>Save game</span>
 				</button>
@@ -256,7 +274,7 @@ export class DartPlayElement extends LitElement {
 					@click=${ this.handleClickAddPlayer }
 				>
 					<mm-icon
-						url="/Dart/person-plus.svg"
+						url="/Dart/man.svg"
 					></mm-icon>
 					<span>Add Player</span>
 				</button>
