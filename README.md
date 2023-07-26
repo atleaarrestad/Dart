@@ -3,6 +3,7 @@ Dart
 
 # Backed URL.
 dartgame.azurewebsites.net
+dartgame.azurewebsites.net/swagger
 
 # Development how to.
 To develop the front end. cd into the client directory.
