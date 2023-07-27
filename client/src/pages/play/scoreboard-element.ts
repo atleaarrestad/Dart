@@ -248,7 +248,7 @@ export default class DartScoreboardElement extends LitElement {
 	protected async retrieveUsers() {
 		const collection = MimicDB.connect('dart').collection(User);
 
-		const dbUsers = await getAllUsers();
+		const dbUsers = await getAllUsers() ?? [];
 		let localUsers = await collection.getAll();
 
 		for await (const lUser of localUsers) {
@@ -280,7 +280,7 @@ export default class DartScoreboardElement extends LitElement {
 			}
 		}
 
-		for await (const user of await getAllUsers())
+		for await (const user of await getAllUsers() ?? [])
 			await collection.put(new User({ ...user, state: 'online' }));
 
 		const users = await collection.getAll();
