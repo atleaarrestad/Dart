@@ -54,6 +54,9 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 					state: 'local',
 					name:  state.name,
 					alias: state.alias,
+					rfid:  crypto.randomUUID(),
+					mmr:   0,
+					rank:  0,
 				}));
 
 			this.retrieveUsers();
@@ -74,6 +77,12 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 			submit,
 		};
 	}).template({
+		initialize: (dialog) => {
+			const blockPropagation = (ev: KeyboardEvent) => ev.stopPropagation();
+			dialog.addEventListener('keydown', blockPropagation);
+			dialog.addEventListener('close',
+				() => dialog.removeEventListener('keydown', blockPropagation), { once: true });
+		},
 		render: (dialog, state, actions) => html`
 		<h3>
 			Create a new Player

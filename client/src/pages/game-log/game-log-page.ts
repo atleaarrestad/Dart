@@ -1,7 +1,7 @@
 import { range } from '@roenlie/mimic-core/array';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { when } from 'lit/directives/when.js';
 

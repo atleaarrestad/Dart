@@ -227,6 +227,40 @@ class Collection<T extends typeof MimicSchema<any>> {
 		return await this.put(item, collKey);
 	}
 
+	public async delete<TKey extends IDBValidKey>(key: TKey): Promise<any> {
+		const coll = await this.collection('readwrite');
+		const promise = await new Promise((res, rej) => {
+			const req = coll.delete(key);
+
+			req.onerror = ev => Collection.#handleRequestError(ev, rej);
+			req.onsuccess = ev => Collection.#handleRequestSuccess(ev, res);
+		});
+
+		return promise;
+	}
+
+	public async deleteByIndex<TKey extends IDBValidKey>(
+		indexName: string,
+		key: TKey,
+	): Promise<any> {
+		const coll = await this.collection('readwrite');
+		const keyPromise = await new Promise<string>((res, rej) => {
+			const req = coll.index(indexName).getKey(key);
+
+			req.onerror = ev => Collection.#handleRequestError(ev, rej);
+			req.onsuccess = ev => Collection.#handleRequestSuccess(ev, res);
+		});
+
+		const promise = await new Promise((res, rej) => {
+			const req = coll.delete(keyPromise);
+
+			req.onerror = ev => Collection.#handleRequestError(ev, rej);
+			req.onsuccess = ev => Collection.#handleRequestSuccess(ev, res);
+		});
+
+		return promise;
+	}
+
 }
 
 

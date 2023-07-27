@@ -3,10 +3,10 @@ import { EventOf } from '@roenlie/mimic-core/dom';
 import { DialogElement } from '@roenlie/mimic-elements/dialog';
 import { IconElement } from '@roenlie/mimic-elements/icon';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 
-import { Game, Player, User } from '../../app/client-db.js';
+import { defaultUser, Game, Player } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
 import DartScoreboardElement from './scoreboard-element.js';
 
@@ -24,15 +24,10 @@ export class DartPlayElement extends LitElement {
 	@query('dart-scoreboard') protected scoreboardEl: DartScoreboardElement;
 	@state() protected gameId = crypto.randomUUID();
 	@state() protected goal = 250;
+	@state() protected ranked = false;
 	@state() protected players: Player[] = [
 		...range(0, 2).map(() => ({
-			user: new User({
-				id:    crypto.randomUUID(),
-				state: 'unregistered',
-				name:  '',
-				alias: '',
-			}),
-			goal:      this.goal,
+			user:      defaultUser(),
 			placement: 0,
 			round:     [
 				...range(0, 2).map(() => ({
@@ -53,7 +48,15 @@ export class DartPlayElement extends LitElement {
 		super.disconnectedCallback();
 		window.removeEventListener('keydown', this.handlePageKeydown);
 	}
-	//#endregiona
+
+	protected override willUpdate(props: PropertyValues): void {
+		super.willUpdate(props);
+
+		this.players.every(player => player.user.state === 'online')
+			? this.ranked = true
+			: this.ranked = false;
+	}
+	//#endregion
 
 
 	//#region Handlers
@@ -72,13 +75,8 @@ export class DartPlayElement extends LitElement {
 
 		this.players.push({
 			placement: 0,
-			user:      new User({
-				id:    crypto.randomUUID(),
-				state: 'unregistered',
-				name:  '',
-				alias: '',
-			}),
-			round: range(longestScore)
+			user:      defaultUser(),
+			round:     range(longestScore)
 				.map(() => ({ calculation: '', sum: 0 })),
 		});
 		this.players = [ ...this.players ];
@@ -88,7 +86,8 @@ export class DartPlayElement extends LitElement {
 		});
 	}
 
-	protected handleClickRemovePlayer(index: number) {
+	protected handleClickRemovePlayer(ev: {detail: {index: number}}) {
+		const index = ev.detail.index;
 		if (this.players[index]?.round.some(s => s.calculation)) {
 			const remove = confirm('Player has recorded score in the active game. '
 				+ 'Are you sure you wish to remove them?');
@@ -96,7 +95,6 @@ export class DartPlayElement extends LitElement {
 			if (!remove)
 				return;
 		}
-
 
 		this.players.splice(index, 1);
 		this.players = [ ...this.players ];
@@ -106,16 +104,13 @@ export class DartPlayElement extends LitElement {
 		});
 	}
 
-	protected handleClickRestartGame() {
+	protected async handleClickRestartGame() {
 		const activeGame = this.players.some(par => par.round.some(s => s.calculation));
 		if (activeGame) {
 			const reset = confirm('Game currently in progress. Are you sure you wish to reset?');
 			if (!reset)
 				return;
 		}
-
-		if (activeGame)
-			this.handleClickSaveGame();
 
 		this.players.forEach(par => {
 			par.placement = 0;
@@ -134,9 +129,9 @@ export class DartPlayElement extends LitElement {
 		});
 	}
 
-	protected async handleClickSaveGame() {
+	protected async handleClickSubmitGame() {
 		if (this.players.every(par => par.round.length <= 2)) {
-			alert('Cannot save a game with less than 2 rounds played.');
+			alert('Cannot submit a game with less than 2 rounds played.');
 
 			return;
 		}
@@ -190,6 +185,7 @@ export class DartPlayElement extends LitElement {
 				players:  this.players,
 				datetime: new Date(),
 				state:    'local',
+				ranked:   this.ranked,
 			}), this.gameId);
 
 		setTimeout(() => {
@@ -206,7 +202,7 @@ export class DartPlayElement extends LitElement {
 
 		if (ev.shiftKey && ev.code === 'KeyS') {
 			ev.preventDefault();
-			this.handleClickSaveGame();
+			this.handleClickSubmitGame();
 		}
 
 		if (ev.shiftKey && (ev.key === '?' || ev.key === '+')) {
@@ -216,7 +212,7 @@ export class DartPlayElement extends LitElement {
 
 		if (ev.shiftKey && (ev.key === '_' || ev.key === '-')) {
 			ev.preventDefault();
-			this.handleClickRemovePlayer(this.players.length - 1);
+			this.handleClickRemovePlayer({ detail: { index: this.players.length - 1 } });
 		}
 	};
 	//#endregion
@@ -262,12 +258,13 @@ export class DartPlayElement extends LitElement {
 
 				<button
 					class="header-action"
-					@click=${ this.handleClickSaveGame }
+					?disabled=${ !this.ranked }
+					@click=${ this.handleClickSubmitGame }
 				>
 					<mm-icon
 						url="/Dart/cloud.svg"
 					></mm-icon>
-					<span>Save game</span>
+					<span>Submit game</span>
 				</button>
 
 				<button
@@ -285,10 +282,8 @@ export class DartPlayElement extends LitElement {
 		<dart-scoreboard
 			.goal=${ this.goal }
 			.players=${ this.players }
-			@remove-player=${
-				(ev: CustomEvent<{index: number}>) =>
-					this.handleClickRemovePlayer(ev.detail.index)
-			}
+			@select-player=${ () => void this.requestUpdate() }
+			@remove-player=${ this.handleClickRemovePlayer }
 		></dart-scoreboard>
 		`;
 	}
@@ -323,6 +318,7 @@ export class DartPlayElement extends LitElement {
 		}
 		.page-header .settings input {
 			width: 100%;
+			text-align: center;
 		}
 		.page-header .shortcuts .group {
 			display: grid;
@@ -346,28 +342,12 @@ export class DartPlayElement extends LitElement {
 			border-radius: 6px;
 			border: 1px solid rgb(45, 69, 71);
 		}
+		button.header-action:disabled {
+			opacity: 0.5;
+		}
 		button.header-action:focus-visible,
 		button.header-action:hover {
 			box-shadow: 0px 0px 3px black;
-		}
-		button.add-player {
-			width: max-content;
-			place-self: start center;
-			display: grid;
-			place-items: center;
-			cursor: pointer;
-			padding: 4px;
-			border-radius: 6px;
-			border: 1px solid transparent;
-			background-color: lightgreen;
-		}
-		button.add-player:hover {
-			color: white;
-			background-color: darkgreen;
-			border-color: rgb(30 30 30 / 50%);
-		}
-		button.add-player:focus-visible {
-			border-color: rgb(30 30 30 / 50%);
 		}
 	`,
 	];

@@ -10,7 +10,8 @@ import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 
-import { Player, Round, User } from '../../app/client-db.js';
+import { addNewUser, getAllUsers } from '../../api/users-api.js';
+import { defaultUser, Player, Round, User } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
 import { createUserDialog } from './create-user-dialog.js';
 import DartDropdownElement, { DartDropdownItemElement } from './dropdown-element.js';
@@ -245,9 +246,45 @@ export default class DartScoreboardElement extends LitElement {
 	}
 
 	protected async retrieveUsers() {
-		const users = await MimicDB.connect('dart')
-			.collection(User)
-			.getAll();
+		const collection = MimicDB.connect('dart').collection(User);
+
+		const dbUsers = await getAllUsers();
+		const localUsers = (await collection.getAll())
+			.filter(user => user.state === 'local');
+
+		const requests: Promise<any>[] = [];
+		localUsers.forEach(user => {
+			if (dbUsers.some(u => u.id === user.id)) {
+				const request = collection.delete(user.id)
+					.then(() => void localUsers
+						.splice(localUsers.findIndex(u => u.id === user.id), 1));
+
+				requests.push(request);
+			}
+			else {
+				const request = addNewUser({
+					username: user.name,
+					alias:    user.alias,
+					rfid:     user.rfid,
+				}).then((user) => {
+					if (!user)
+						return;
+
+					localUsers.splice(localUsers.findIndex(u => u.id === user.id), 1);
+					collection.add(new User({ ...user, state: 'online' }), user.id);
+				});
+
+				requests.push(request);
+			}
+		});
+
+		await Promise.all(requests);
+		await Promise.all((await getAllUsers())
+			.map(user => collection.put(new User({ ...user, state: 'online' }))));
+
+		const users = await collection.getAll();
+
+		console.log(users);
 
 		this.users = users;
 	}
@@ -308,6 +345,9 @@ export default class DartScoreboardElement extends LitElement {
 			state: 'unregistered',
 			name:  value,
 			alias: value,
+			rfid:  crypto.randomUUID(),
+			mmr:   0,
+			rank:  0,
 		});
 
 		this.requestUpdate();
@@ -322,7 +362,9 @@ export default class DartScoreboardElement extends LitElement {
 		player.user = value;
 
 		const path = ev.composedPath();
-		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
+		const dropdown = path.find((el): el is DartDropdownElement =>
+			el instanceof DartDropdownElement);
+
 		if (dropdown)
 			dropdown.disabled = true;
 
@@ -333,6 +375,8 @@ export default class DartScoreboardElement extends LitElement {
 			else
 				this.focusHeaderField(index + 1);
 		});
+
+		emitEvent(this, 'select-player');
 	}
 
 	protected handleHeaderClear(
@@ -340,20 +384,19 @@ export default class DartScoreboardElement extends LitElement {
 		index: number,
 		ev: CustomEventOf<any, DartDropdownItemElement>,
 	) {
-		player.user = new User({
-			id:    crypto.randomUUID(),
-			state: 'unregistered',
-			name:  '',
-			alias: '',
-		});
+		player.user = defaultUser();
 
 		const path = ev.composedPath();
-		const dropdown = path.find((el): el is DartDropdownElement => el instanceof DartDropdownElement);
+		const dropdown = path.find((el): el is DartDropdownElement =>
+			el instanceof DartDropdownElement);
+
 		if (dropdown)
 			dropdown.disabled = false;
 
 		this.requestUpdate();
 		setTimeout(() => this.focusHeaderField(index));
+
+		emitEvent(this, 'select-player');
 	}
 
 	protected handleHeaderKeydown(ev: KeyboardEvent) {
