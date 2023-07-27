@@ -249,8 +249,6 @@ export default class DartScoreboardElement extends LitElement {
 		const collection = MimicDB.connect('dart').collection(User);
 
 		const dbUsers = await getAllUsers();
-		//const cachedUsers = (await collection.getAll());
-		//const localUsers = cachedUsers.filter(user => user.state === 'local');
 		const localUsers = (await collection.getAll());
 
 		const requests: Promise<any>[] = [];

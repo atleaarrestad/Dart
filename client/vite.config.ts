@@ -13,5 +13,11 @@ export default defineConfig({
 	build: {
 		outDir:      '../desktop/dist',
 		emptyOutDir: true,
+		minify: false,
+		rollupOptions: {
+			output: {
+				manualChunks: {}
+			},
+		},
 	},
 });
