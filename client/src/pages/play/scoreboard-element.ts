@@ -249,30 +249,40 @@ export default class DartScoreboardElement extends LitElement {
 		const collection = MimicDB.connect('dart').collection(User);
 
 		const dbUsers = await getAllUsers();
-		const localUsers = (await collection.getAll())
-			.filter(user => user.state === 'local');
+		//const cachedUsers = (await collection.getAll());
+		//const localUsers = cachedUsers.filter(user => user.state === 'local');
+		const localUsers = (await collection.getAll());
 
 		const requests: Promise<any>[] = [];
 		localUsers.forEach(user => {
-			if (dbUsers.some(u => u.id === user.id)) {
+			if (user.state === 'local') {
+				if (dbUsers.some(u => u.id === user.id)) {
+					const request = collection.delete(user.id)
+						.then(() => void localUsers
+							.splice(localUsers.findIndex(u => u.id === user.id), 1));
+
+					requests.push(request);
+				}
+				else {
+					const request = addNewUser({
+						username: user.name,
+						alias:    user.alias,
+						rfid:     user.rfid,
+					}).then((user) => {
+						if (!user)
+							return;
+
+						localUsers.splice(localUsers.findIndex(u => u.id === user.id), 1);
+						collection.add(new User({ ...user, state: 'online' }), user.id);
+					});
+
+					requests.push(request);
+				}
+			}
+			if (user.state === 'online' && dbUsers.some(u => u.id !== user.id)) {
 				const request = collection.delete(user.id)
 					.then(() => void localUsers
 						.splice(localUsers.findIndex(u => u.id === user.id), 1));
-
-				requests.push(request);
-			}
-			else {
-				const request = addNewUser({
-					username: user.name,
-					alias:    user.alias,
-					rfid:     user.rfid,
-				}).then((user) => {
-					if (!user)
-						return;
-
-					localUsers.splice(localUsers.findIndex(u => u.id === user.id), 1);
-					collection.add(new User({ ...user, state: 'online' }), user.id);
-				});
 
 				requests.push(request);
 			}
