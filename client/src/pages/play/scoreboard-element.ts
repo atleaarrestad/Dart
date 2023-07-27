@@ -249,51 +249,33 @@ export default class DartScoreboardElement extends LitElement {
 		const collection = MimicDB.connect('dart').collection(User);
 
 		const dbUsers = await getAllUsers();
-		const localUsers = (await collection.getAll());
+		let localUsers = await collection.getAll();
 
-		const requests: Promise<any>[] = [];
-		localUsers.forEach(user => {
-			if (user.state === 'local') {
-				if (dbUsers.some(u => u.id === user.id)) {
-					const request = collection.delete(user.id)
-						.then(() => void localUsers
-							.splice(localUsers.findIndex(u => u.id === user.id), 1));
+		console.log(dbUsers);
 
-					requests.push(request);
-				}
-				else {
-					const request = addNewUser({
-						username: user.name,
-						alias:    user.alias,
-						rfid:     user.rfid,
-					}).then((user) => {
-						if (!user)
-							return;
+		for await (const lUser of localUsers) {
+			const existsById = dbUsers.some(u => u.id === lUser.id);
+			const existsByName = dbUsers.some(u => u.name === lUser.name);
+			const existsByRfid = dbUsers.some(u => u.rfid === lUser.rfid);
 
-						localUsers.splice(localUsers.findIndex(u => u.id === user.id), 1);
-						collection.add(new User({ ...user, state: 'online' }), user.id);
-					});
+			if (lUser.state === 'online' && !existsById)
+				await collection.delete(lUser.id);
 
-					requests.push(request);
-				}
+			if (lUser.state === 'local' && existsById)
+				await collection.delete(lUser.id);
+
+			if (lUser.state === 'local' && !existsById) {
+				if (existsByName || existsByRfid)
+					await collection.delete(lUser.id);
+				else
+					await addNewUser({ username: lUser.name, alias: lUser.alias, rfid: lUser.rfid });
 			}
-			if (user.state === 'online' && !dbUsers.some(u => u.id !== user.id)) {
-				const request = collection.delete(user.id)
-					.then(() => void localUsers
-						.splice(localUsers.findIndex(u => u.id === user.id), 1));
+		}
 
-				requests.push(request);
-			}
-		});
-
-		await Promise.all(requests);
-		await Promise.all((await getAllUsers())
-			.map(user => collection.put(new User({ ...user, state: 'online' }))));
+		for await (const user of await getAllUsers())
+			await collection.put(new User({ ...user, state: 'online' }));
 
 		const users = await collection.getAll();
-
-		console.log(users);
-
 		this.users = users;
 	}
 
@@ -347,6 +329,8 @@ export default class DartScoreboardElement extends LitElement {
 		player: Player,
 		ev: EventOf<HTMLInputElement>,
 	) {
+		ev.stopPropagation();
+
 		const value = ev.target.value;
 		player.user = new User({
 			id:    crypto.randomUUID(),
@@ -408,6 +392,9 @@ export default class DartScoreboardElement extends LitElement {
 	}
 
 	protected handleHeaderKeydown(ev: KeyboardEvent) {
+		if (ev.shiftKey && ev.key.length === 1 && /[a-zA-Z]/.test(ev.key))
+			ev.stopPropagation();
+
 		if (ev.key === 'Tab' && !ev.shiftKey) {
 			ev.stopPropagation();
 

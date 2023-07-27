@@ -43,7 +43,7 @@ export const getAllUsers = async () => {
 };
 
 
-export const addNewUser = async (data: $NewUserOut) => {
+export const addNewUser = async (data: $NewUserOut): Promise<$UserDTO | null> => {
 	$NewUserOut.parse(data);
 
 	const url = new URL('api/user/add', SERVER_ENDPOINT);
@@ -52,9 +52,22 @@ export const addNewUser = async (data: $NewUserOut) => {
 	url.searchParams.append('rfid', data.rfid);
 
 	const [ result ] = await maybe(
-		fetch(url, { method: 'POST', mode: 'no-cors'  })
-			.then(r => r.json()).then(r => $UserDTO.parse(r)),
+		fetch(url, { method: 'POST' })
+			.then(r => r.json())
+			.then(r => $UserDTO.parse(r)),
 	);
 
 	return result;
+};
+
+export const getUserById = async (id: string): Promise<$UserDTO | null> => {
+	const url = new URL(`api/user/getbyid/${ id }`, SERVER_ENDPOINT);
+	const [ user ] = await maybe<$UserDTO>(
+		fetch(url, { method: 'GET' })
+			.then(r => r.json())
+			.then(r => $UserDTO.parse(r)),
+	);
+
+
+	return user;
 };
