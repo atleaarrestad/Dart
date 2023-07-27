@@ -1,9 +1,10 @@
-import { Game, User } from './client-db.js';
+import { Game, User, defaultUser } from './client-db.js';
 
 
 export class DartEngine {
 
 	protected game: Game = new Game({
+		ranked: false,
 		datetime: new Date(),
 		goal:     301,
 		id:       crypto.randomUUID(),
@@ -11,12 +12,7 @@ export class DartEngine {
 			{
 				placement: 0,
 				round:     [],
-				user:      new User({
-					alias: '',
-					id:    crypto.randomUUID(),
-					name:  '',
-					state: 'unregistered',
-				}),
+				user:      defaultUser(),
 			},
 		],
 		state: 'local',

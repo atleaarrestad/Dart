@@ -57,8 +57,8 @@ export const defaultUser = () => new User({
 
 MimicDB.setup('dart', (setup) => {
 	setup.createCollection(User, 'users', { autoIncrement: true })
-		.createIndex('id', 'id', { unique: true })
-		.createIndex('name', 'name', { unique: true })
+		.createIndex('id', 'id')
+		.createIndex('name', 'name')
 		.createIndex('state', 'state')
 		.createIndex('alias', 'alias')
 		.mutate(() => {});
