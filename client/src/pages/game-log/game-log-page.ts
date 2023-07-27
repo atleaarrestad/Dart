@@ -5,8 +5,10 @@ import { customElement, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { when } from 'lit/directives/when.js';
 
-import { Game } from '../../app/client-db.js';
+import { getMostRecentGames } from '../../api/game-api.js';
+import { defaultUser, Game, User } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
+import { uploadLocalGames } from '../../app/upload-local-games.js';
 
 
 @customElement('dart-game-log-page')
@@ -18,14 +20,37 @@ export class DartGameLogPage extends LitElement {
 	public override connectedCallback(): void {
 		super.connectedCallback();
 
-		MimicDB.connect('dart')
-			.collection(Game)
-			.getAll()
-			.then(games => {
-				this.games = games
-					.sort((a, b) => b.datetime.valueOf() - a.datetime.valueOf())
-					.slice(0, 20);
+		uploadLocalGames().then(() => {
+			getMostRecentGames(20).then(async games => {
+				if (!games)
+					return;
+
+				const coll = MimicDB.connect('dart').collection(User);
+				const users = await coll.getAll();
+
+				this.games = games.map(game => {
+					const transformed: Game = {
+						datetime: new Date(game.date),
+						goal:     game.goal,
+						id:       game.id,
+						ranked:   true,
+						state:    'online',
+						players:  game.playerIDs.map((playerId, pId) => {
+							return {
+								placement: game.playerResults[pId]!.placement,
+								user:      users.find(u => u.id === playerId) ?? defaultUser(),
+								round:     game.rounds.map(r => ({
+									calculation: r.playerScores[pId]!.toString(),
+									sum:         r.playerScores[pId]!,
+								})),
+							};
+						}),
+					};
+
+					return transformed;
+				});
 			});
+		});
 	}
 
 	protected handleSelectGame(game: Game) {
@@ -104,23 +129,26 @@ export class DartGameLogPage extends LitElement {
 		sharedStyles,
 		css`
 		:host {
+			overflow: hidden;
 			display: grid;
 			grid-template-columns: 150px 1fr;
 		}
 		game-list {
+			overflow: hidden;
 			display: grid;
 			justify-content: center;
 			border-right: 1px solid black;
-			padding-block: 8px;
-			padding-inline: 12px;
 		}
 		ol {
 			all: unset;
+			overflow: auto;
 			display: grid;
 			grid-auto-flow: row;
 			grid-auto-rows: max-content;
 			align-items: center;
 			gap: 4px;
+			padding-block: 8px;
+			padding-inline: 12px;
 		}
 		li {
 			all: unset;
@@ -134,6 +162,7 @@ export class DartGameLogPage extends LitElement {
 			text-align: center;
 		}
 		game-info {
+			overflow: auto;
 			display: grid;
 			grid-auto-flow: row;
 			grid-auto-rows: max-content;

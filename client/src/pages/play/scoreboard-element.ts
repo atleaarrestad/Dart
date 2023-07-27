@@ -253,8 +253,6 @@ export default class DartScoreboardElement extends LitElement {
 
 		for await (const lUser of localUsers) {
 			const existsById = dbUsers.some(u => u.id === lUser.id);
-			const existsByName = dbUsers.some(u => u.name === lUser.name);
-			const existsByRfid = dbUsers.some(u => u.rfid === lUser.rfid);
 
 			if (lUser.state === 'online' && !existsById)
 				await collection.delete(lUser.id);
@@ -263,6 +261,9 @@ export default class DartScoreboardElement extends LitElement {
 				await collection.delete(lUser.id);
 
 			if (lUser.state === 'local' && !existsById) {
+				const existsByName = dbUsers.some(u => u.name === lUser.name);
+				const existsByRfid = dbUsers.some(u => u.rfid === lUser.rfid);
+
 				if (existsByName || existsByRfid) {
 					await collection.delete(lUser.id);
 				}
@@ -505,7 +506,8 @@ export default class DartScoreboardElement extends LitElement {
 			${ repeat(
 				items()
 					.filter(u => !this.players.find(p => p.user.id === u.id))
-					.filter(u => this.relaxedStringCompare(u.alias, par.user.alias)),
+					.filter(u => this.relaxedStringCompare(u.alias, par.user.alias) ||
+						this.relaxedStringCompare(u.name, par.user.alias)),
 				u => u,
 				u => html`
 				<dart-dropdown-item .value=${ u }>${ u.alias }</dart-dropdown-item>

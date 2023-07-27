@@ -8,6 +8,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 
 import { defaultUser, Game, Player } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
+import { uploadLocalGames } from '../../app/upload-local-games.js';
 import DartScoreboardElement from './scoreboard-element.js';
 
 [ IconElement, DartScoreboardElement, DialogElement ];
@@ -104,12 +105,14 @@ export class DartPlayElement extends LitElement {
 		});
 	}
 
-	protected async handleClickRestartGame() {
-		const activeGame = this.players.some(par => par.round.some(s => s.calculation));
-		if (activeGame) {
-			const reset = confirm('Game currently in progress. Are you sure you wish to reset?');
-			if (!reset)
-				return;
+	protected async handleClickRestartGame(force = false) {
+		if (!force) {
+			const activeGame = this.players.some(par => par.round.some(s => s.calculation));
+			if (activeGame) {
+				const reset = confirm('Game currently in progress. Are you sure you wish to reset?');
+				if (!reset)
+					return;
+			}
 		}
 
 		this.players.forEach(par => {
@@ -188,9 +191,15 @@ export class DartPlayElement extends LitElement {
 				ranked:   this.ranked,
 			}), this.gameId);
 
+		this.handleClickRestartGame(true);
+
 		setTimeout(() => {
 			setDialogText('Game saved successfully');
-			setTimeout(() => closeDialog(), 2000);
+
+			setTimeout(() => {
+				closeDialog();
+				uploadLocalGames();
+			}, 2000);
 		}, 500);
 	}
 
