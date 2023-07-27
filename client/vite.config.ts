@@ -10,14 +10,23 @@ export default defineConfig({
 	define: {
 		APP_VERSION: JSON.stringify(packageJson.version),
 	},
+	esbuild: {
+		minifyIdentifiers: false,
+	},
 	build: {
 		outDir:      '../desktop/dist',
 		emptyOutDir: true,
 		minify: false,
 		rollupOptions: {
+			preserveEntrySignatures: 'allow-extension',
 			output: {
-				manualChunks: {}
+				preserveModules: true,
+				preserveModulesRoot: 'src',
+				entryFileNames: (entry) => `${ entry.name }.js`,
 			},
 		},
+
+		sourcemap: true,
+
 	},
 });
