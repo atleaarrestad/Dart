@@ -277,7 +277,7 @@ export default class DartScoreboardElement extends LitElement {
 					requests.push(request);
 				}
 			}
-			if (user.state === 'online' && dbUsers.some(u => u.id !== user.id)) {
+			if (user.state === 'online' && !dbUsers.some(u => u.id !== user.id)) {
 				const request = collection.delete(user.id)
 					.then(() => void localUsers
 						.splice(localUsers.findIndex(u => u.id === user.id), 1));
