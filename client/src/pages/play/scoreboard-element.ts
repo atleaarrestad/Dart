@@ -251,8 +251,6 @@ export default class DartScoreboardElement extends LitElement {
 		const dbUsers = await getAllUsers();
 		let localUsers = await collection.getAll();
 
-		console.log(dbUsers);
-
 		for await (const lUser of localUsers) {
 			const existsById = dbUsers.some(u => u.id === lUser.id);
 			const existsByName = dbUsers.some(u => u.name === lUser.name);
@@ -265,10 +263,19 @@ export default class DartScoreboardElement extends LitElement {
 				await collection.delete(lUser.id);
 
 			if (lUser.state === 'local' && !existsById) {
-				if (existsByName || existsByRfid)
+				if (existsByName || existsByRfid) {
 					await collection.delete(lUser.id);
-				else
-					await addNewUser({ username: lUser.name, alias: lUser.alias, rfid: lUser.rfid });
+				}
+				else {
+					const res = await addNewUser({
+						username: lUser.name,
+						alias:    lUser.alias,
+						rfid:     lUser.rfid,
+					});
+
+					if (res)
+						await collection.delete(lUser.id);
+				}
 			}
 		}
 
