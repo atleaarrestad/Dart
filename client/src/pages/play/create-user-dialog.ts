@@ -17,9 +17,10 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 
 	dialogEl.createConfig(() => {
 		return {
-			canSubmit: false,
-			name:      '',
-			alias:     '',
+			submitting: false,
+			canSubmit:  false,
+			name:       '',
+			alias:      '',
 		};
 	}).actions((dialog, state) => {
 		const isNameValid = async (username: string) => {
@@ -47,21 +48,27 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 		};
 
 		const submit = async () => {
-			await MimicDB.connect('dart')
-				.collection(User)
-				.add(new User({
-					id:    crypto.randomUUID(),
-					state: 'local',
-					name:  state.name,
-					alias: state.alias,
-					rfid:  crypto.randomUUID(),
-					mmr:   0,
-					rank:  0,
-				}));
+			try {
+				state.submitting = true;
 
-			this.retrieveUsers();
+				await MimicDB.connect('dart')
+					.collection(User)
+					.add(new User({
+						id:    crypto.randomUUID(),
+						state: 'local',
+						name:  state.name,
+						alias: state.alias,
+						rfid:  crypto.randomUUID(),
+						mmr:   0,
+						rank:  0,
+					}));
 
-			dialog.close();
+				await this.retrieveUsers();
+			}
+			catch (error) { /*  */ }
+			finally {
+				dialog.close();
+			}
 		};
 
 		dialog.addEventListener('close', () => {
@@ -84,14 +91,20 @@ export function createUserDialog(this: DartScoreboardElement, columnIndex: numbe
 				() => dialog.removeEventListener('keydown', blockPropagation), { once: true });
 		},
 		render: (dialog, state, actions) => html`
-		<h3>
-			Create a new Player
-		</h3>
+		<h3>Create a new Player</h3>
 		<user-form>
-			<input placeholder="name" @input=${ actions.handleUsernameInput } />
-			<input placeholder="alias" @input=${ actions.handleAliasInput } />
+			<input
+				?disabled=${ state.submitting }
+				placeholder="name"
+				@input=${ actions.handleUsernameInput }
+			/>
+			<input
+				?disabled=${ state.submitting }
+				placeholder="alias"
+				@input=${ actions.handleAliasInput }
+			/>
 			<form-actions>
-				<button ?disabled=${ !state.canSubmit } @click=${ actions.submit }>Submit</button>
+				<button ?disabled=${ !state.canSubmit || state.submitting } @click=${ actions.submit }>Submit</button>
 				<button @click=${ () => dialog.close() }>Cancel</button>
 			</form-actions>
 		</user-form>
