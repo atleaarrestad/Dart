@@ -1,4 +1,4 @@
-import { CustomEventOf, emitEvent, EventOf } from '@roenlie/mimic-core/dom';
+import { type CustomEventOf, emitEvent, type EventOf } from '@roenlie/mimic-core/dom';
 import { invariant } from '@roenlie/mimic-core/validation';
 import { onEnter } from '@roenlie/mimic-lit/directives';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
@@ -11,7 +11,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 
 import { addNewUser, getAllUsers } from '../../api/users-api.js';
-import { defaultUser, Player, Round, User } from '../../app/client-db.js';
+import { defaultUser, type Player, type Round, User } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
 import { createUserDialog } from './create-user-dialog.js';
 import DartDropdownElement, { DartDropdownItemElement } from './dropdown-element.js';
@@ -26,7 +26,7 @@ declare global { interface HTMLElementTagNameMap {
 export default class DartScoreboardElement extends LitElement {
 
 	//#region Properties
-	@property({ type: Number }) public goal: number = 0;
+	@property({ type: Number }) public goal = 0;
 	@property({ type: Array }) public players: Player[] = [];
 	@state() protected users: User[] = [];
 	@queryAll('article ol') protected listEls: HTMLOListElement[];
@@ -249,7 +249,7 @@ export default class DartScoreboardElement extends LitElement {
 		const collection = MimicDB.connect('dart').collection(User);
 
 		const dbUsers = await getAllUsers() ?? [];
-		let localUsers = await collection.getAll();
+		const localUsers = await collection.getAll();
 
 		for await (const lUser of localUsers) {
 			const existsById = dbUsers.some(u => u.id === lUser.id);
@@ -429,7 +429,9 @@ export default class DartScoreboardElement extends LitElement {
 		const sanitizedExpr = this.sanitizeCalculation(calculation);
 
 		let sum = 0;
-		try { sum = Math.floor(parseFloat(eval(sanitizedExpr) ?? 0)); }
+		try {
+			sum = Math.floor(parseFloat(eval(sanitizedExpr) ?? 0));
+		}
 		catch { /*  */ }
 
 		player.round[index] = { calculation, sum };
@@ -510,7 +512,7 @@ export default class DartScoreboardElement extends LitElement {
 						this.relaxedStringCompare(u.name, par.user.alias)),
 				u => u,
 				u => html`
-				<dart-dropdown-item .value=${ u }>${ u.alias }</dart-dropdown-item>
+				<dart-dropdown-item .value=${ u }>${ u.alias } - ${ u.mmr }</dart-dropdown-item>
 				`,
 			) }
 			<dart-dropdown-item
