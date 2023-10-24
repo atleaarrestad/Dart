@@ -499,7 +499,7 @@ export default class DartScoreboardElement extends LitElement {
 			showClearWhenDisabled
 			placeholder =${ 'Player ' + (index + 1) }
 			name        =${ 'header|' + par.user.id }
-			.value      =${ par.user.alias }
+			.value		=${ par.user.state !== 'unregistered' ? `${ par.user.alias } - ${ par.user.mmr }` : '' }
 			@clear      =${ this.handleHeaderClear.bind(this, par, index) }
 			@input      =${ this.handleHeaderInput.bind(this, par) }
 			@select-item=${ this.handleHeaderSelect.bind(this, par, index) }
