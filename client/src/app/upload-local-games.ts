@@ -11,7 +11,7 @@ export const uploadLocalGames = async () => {
 
 	const url = new URL('api/dartgame/add', SERVER_ENDPOINT);
 	for await (const game of localGames) {
-		const body: $GameDTO = {
+		const body: $GameOut = {
 			goal:      game.goal,
 			playerIDs: game.players.map(player => player.user.id),
 			rounds:    game.players.reduce((prev, cur) => {
