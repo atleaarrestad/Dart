@@ -87,6 +87,23 @@ export class DartPlayElement extends LitElement {
 		});
 	}
 
+	protected handleSelectPlayer() {
+		this.players.sort((a, b) => {
+			if (a.user.state === 'online' && b.user.state === 'online')
+				return a.user.mmr - b.user.mmr;
+
+			if (a.user.state === 'online')
+				return -1;
+
+			if (b.user.state === 'online')
+				return 1;
+
+			return 0;
+		});
+
+		this.requestUpdate();
+	}
+
 	protected handleClickRemovePlayer(ev: { detail: { index: number } }) {
 		const index = ev.detail.index;
 		if (this.players[index]?.round.some((s) => s.calculation)) {
@@ -286,7 +303,7 @@ export class DartPlayElement extends LitElement {
       <dart-scoreboard
         .goal=${ this.goal }
         .players=${ this.players }
-        @select-player=${ () => void this.requestUpdate() }
+        @select-player=${ () => void this.handleSelectPlayer() }
         @remove-player=${ this.handleClickRemovePlayer }
       ></dart-scoreboard>
     `;
