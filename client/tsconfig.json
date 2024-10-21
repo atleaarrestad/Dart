@@ -17,6 +17,7 @@
 	"exclude": [
 		"./**/*.test.ts",
 		"./**/*.bench.ts",
-		"./**/*.editor.d.ts"
+		"./**/*.editor.d.ts",
+		"node_modules"
 	]
 }

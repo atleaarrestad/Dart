@@ -1,5 +1,5 @@
 import { emitEvent, type EventOf } from '@roenlie/mimic-core/dom';
-import { IconElement } from '@roenlie/mimic-elements/icon';
+import { MMIcon } from '@roenlie/mimic-elements/icon';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -8,7 +8,7 @@ import { live } from 'lit/directives/live.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { when } from 'lit/directives/when.js';
 
-[ IconElement ];
+[ MMIcon ];
 
 declare global {
 	interface HTMLElementTagNameMap {

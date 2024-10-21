@@ -1,10 +1,9 @@
-import { IconElement } from '@roenlie/mimic-elements/icon';
-import { includeCE } from '@roenlie/mimic-lit/injectable';
+import { MMIcon } from '@roenlie/mimic-elements/icon';
 import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 
-includeCE(IconElement);
+MMIcon;
 
 
 declare global {

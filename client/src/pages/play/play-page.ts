@@ -1,245 +1,248 @@
-import { range } from "@roenlie/mimic-core/array";
-import { type EventOf } from "@roenlie/mimic-core/dom";
-import { DialogElement } from "@roenlie/mimic-elements/dialog";
-import { IconElement } from "@roenlie/mimic-elements/icon";
-import { sharedStyles } from "@roenlie/mimic-lit/styles";
-import { css, html, LitElement, type PropertyValues } from "lit";
-import { customElement, query, state } from "lit/decorators.js";
+import { range } from '@roenlie/mimic-core/array';
+import { type EventOf } from '@roenlie/mimic-core/dom';
+import { DialogConfig, MMDialog } from '@roenlie/mimic-elements/dialog';
+import { MMIcon } from '@roenlie/mimic-elements/icon';
+import { sharedStyles } from '@roenlie/mimic-lit/styles';
+import { css, html, LitElement, type PropertyValues } from 'lit';
+import { customElement, query, state } from 'lit/decorators.js';
 
-import { defaultUser, Game, type Player } from "../../app/client-db.js";
-import { MimicDB } from "../../app/mimic-db.js";
-import { uploadLocalGames } from "../../app/upload-local-games.js";
-import DartScoreboardElement from "./scoreboard-element.js";
+import { defaultUser, Game, type Player } from '../../app/client-db.js';
+import { MimicDB } from '../../app/mimic-db.js';
+import { uploadLocalGames } from '../../app/upload-local-games.js';
+import DartScoreboardElement from './scoreboard-element.js';
 
-[IconElement, DartScoreboardElement, DialogElement];
+MMIcon.register();
+MMDialog.register();
+[ DartScoreboardElement ];
 
 declare global {
-  interface HTMLElementTagNameMap {
-    "dart-play-page": DartPlayElement;
-  }
+	interface HTMLElementTagNameMap {
+		'dart-play-page': DartPlayElement;
+	}
 }
 
-@customElement("dart-play-page")
+@customElement('dart-play-page')
 export class DartPlayElement extends LitElement {
-  @query("dart-scoreboard") protected scoreboardEl: DartScoreboardElement;
-  @state() protected gameId = crypto.randomUUID();
-  @state() protected goal = 250;
-  @state() protected ranked = false;
-  @state() protected players: Player[] = [
-    ...range(0, 2).map(() => ({
-      user: defaultUser(),
-      placement: 0,
-      round: [
-        ...range(0, 2).map(() => ({
-          sum: 0,
-          calculation: "",
-        })),
-      ],
-    })),
-  ];
 
-  //#region Lifecycle
-  public override connectedCallback(): void {
-    super.connectedCallback();
-    window.addEventListener("keydown", this.handlePageKeydown);
-  }
+	@query('dart-scoreboard') protected scoreboardEl: DartScoreboardElement;
+	@state() protected gameId = crypto.randomUUID();
+	@state() protected goal = 250;
+	@state() protected ranked = false;
+	@state() protected players: Player[] = [
+		...range(0, 2).map(() => ({
+			user:      defaultUser(),
+			placement: 0,
+			round:     [
+				...range(0, 2).map(() => ({
+					sum:         0,
+					calculation: '',
+				})),
+			],
+		})),
+	];
 
-  public override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    window.removeEventListener("keydown", this.handlePageKeydown);
-  }
+	//#region Lifecycle
+	public override connectedCallback(): void {
+		super.connectedCallback();
+		window.addEventListener('keydown', this.handlePageKeydown);
+	}
 
-  protected override willUpdate(props: PropertyValues): void {
-    super.willUpdate(props);
+	public override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		window.removeEventListener('keydown', this.handlePageKeydown);
+	}
 
-    this.players.every((player) => player.user.state === "online")
-      ? (this.ranked = true)
-      : (this.ranked = false);
-  }
-  //#endregion
+	protected override willUpdate(props: PropertyValues): void {
+		super.willUpdate(props);
 
-  //#region Handlers
-  protected handleGoalInput(ev: EventOf<HTMLInputElement>) {
-    ev.target.value = ev.target.value.replace(/[^0-9]/g, "");
+		this.players.every((player) => player.user.state === 'online')
+			? (this.ranked = true)
+			: (this.ranked = false);
+	}
+	//#endregion
 
-    this.goal = parseInt(ev.target.value || "0");
-    this.requestUpdate();
-  }
+	//#region Handlers
+	protected handleGoalInput(ev: EventOf<HTMLInputElement>) {
+		ev.target.value = ev.target.value.replace(/[^0-9]/g, '');
 
-  protected handleClickAddPlayer() {
-    const longestScore = Math.max(
-      2,
-      this.players.reduce((p, c) => Math.max(p, c.round.length), 0)
-    );
+		this.goal = parseInt(ev.target.value || '0');
+		this.requestUpdate();
+	}
 
-    this.players.push({
-      placement: 0,
-      user: defaultUser(),
-      round: range(longestScore).map(() => ({ calculation: "", sum: 0 })),
-    });
-    this.players = [...this.players];
+	protected handleClickAddPlayer() {
+		const longestScore = Math.max(
+			2,
+			this.players.reduce((p, c) => Math.max(p, c.round.length), 0),
+		);
 
-    setTimeout(() => {
-      this.scoreboardEl.focusHeaderField(this.players.length - 1);
-    });
-  }
+		this.players.push({
+			placement: 0,
+			user:      defaultUser(),
+			round:     range(longestScore).map(() => ({ calculation: '', sum: 0 })),
+		});
+		this.players = [ ...this.players ];
 
-  protected handleClickRemovePlayer(ev: { detail: { index: number } }) {
-    const index = ev.detail.index;
-    if (this.players[index]?.round.some((s) => s.calculation)) {
-      const remove = confirm(
-        "Player has recorded score in the active game. " +
-          "Are you sure you wish to remove them?"
-      );
+		setTimeout(() => {
+			this.scoreboardEl.focusHeaderField(this.players.length - 1);
+		});
+	}
 
-      if (!remove) return;
-    }
+	protected handleClickRemovePlayer(ev: { detail: { index: number } }) {
+		const index = ev.detail.index;
+		if (this.players[index]?.round.some((s) => s.calculation)) {
+			const remove = confirm(
+				'Player has recorded score in the active game. ' +
+          'Are you sure you wish to remove them?',
+			);
 
-    this.players.splice(index, 1);
-    this.players = [...this.players];
+			if (!remove)
+				return;
+		}
 
-    setTimeout(() => {
-      this.scoreboardEl.focusHeaderField(this.players.length - 1);
-    });
-  }
+		this.players.splice(index, 1);
+		this.players = [ ...this.players ];
 
-  protected async handleClickRestartGame(force = false) {
-    if (!force) {
-      const activeGame = this.players.some((par) =>
-        par.round.some((s) => s.calculation)
-      );
-      if (activeGame) {
-        const reset = confirm(
-          "Game currently in progress. Are you sure you wish to reset?"
-        );
-        if (!reset) return;
-      }
-    }
+		setTimeout(() => {
+			this.scoreboardEl.focusHeaderField(this.players.length - 1);
+		});
+	}
 
-    this.players.forEach((par) => {
-      par.placement = 0;
-      par.round = [
-        ...range(0, 2).map(() => ({
-          sum: 0,
-          calculation: "",
-        })),
-      ];
-    });
-    this.players = [...this.players];
-    this.gameId = crypto.randomUUID();
+	protected async handleClickRestartGame(force = false) {
+		if (!force) {
+			const activeGame = this.players.some((par) =>
+				par.round.some((s) => s.calculation));
+			if (activeGame) {
+				const reset = confirm(
+					'Game currently in progress. Are you sure you wish to reset?',
+				);
+				if (!reset)
+					return;
+			}
+		}
 
-    setTimeout(() => {
-      this.scoreboardEl.focusListField(0, 0);
-    });
-  }
+		this.players.forEach((par) => {
+			par.placement = 0;
+			par.round = [
+				...range(0, 2).map(() => ({
+					sum:         0,
+					calculation: '',
+				})),
+			];
+		});
+		this.players = [ ...this.players ];
+		this.gameId = crypto.randomUUID();
 
-  protected async handleClickSubmitGame() {
-    if (this.players.every((par) => par.round.length <= 2)) {
-      alert("Cannot submit a game with less than 2 rounds played.");
+		setTimeout(() => {
+			this.scoreboardEl.focusListField(0, 0);
+		});
+	}
 
-      return;
-    }
+	protected async handleClickSubmitGame() {
+		if (this.players.every((par) => par.round.length <= 2)) {
+			alert('Cannot submit a game with less than 2 rounds played.');
 
-    let setDialogText: (text: string) => void = () => {};
-    let closeDialog: () => void = () => {};
+			return;
+		}
 
-    const dialogEl = document.createElement("mm-dialog");
-    dialogEl
-      .createConfig(() => {
-        return {
-          text: "Saving game progress.",
-        };
-      })
-      .actions((dialog, state) => {
-        return {
-          editText: (text: string) => {
-            state.text = text;
-          },
-        };
-      })
-      .template({
-        initialize: (dialog, state, actions) => {
-          setDialogText = actions.editText;
-          closeDialog = () => dialog.close();
-        },
-        render: (dialog, state) => html` <div>${state.text}</div> `,
-        style: css`
-          .base {
-            bottom: 20vh;
-            --mm-dialog-color: black;
-            --mm-dialog-background-color: rgb(180, 204, 185);
-            --mm-dialog-border-color: rgb(67, 76, 68);
-          }
-          .dialog {
-            border-radius: 6px;
-            place-items: center;
-            width: 250px;
-          }
-        `,
-      });
+		let setDialogText: (text: string) => void = () => {};
+		let closeDialog: () => void = () => {};
 
-    this.renderRoot.append(dialogEl);
+		const configCreator = new DialogConfig();
+		configCreator.config({}).state(() => {
+			return {
+				text: 'Saving game progress.',
+			};
+		}).actions((dialog, state) => {
+			return {
+				editText: (text: string) => {
+					state.text = text;
+				},
+			};
+		})
+			.template({
+				initialize: (dialog, state, actions) => {
+					setDialogText = actions.editText;
+					closeDialog = () => dialog.close();
+				},
+				render: (dialog, state) => html` <div>${ state.text }</div> `,
+				style:  css`
+		  .base {
+			 bottom: 20vh;
+			 --mm-dialog-color: black;
+			 --mm-dialog-background-color: rgb(180, 204, 185);
+			 --mm-dialog-border-color: rgb(67, 76, 68);
+		  }
+		  .dialog {
+			 border-radius: 6px;
+			 place-items: center;
+			 width: 250px;
+		  }
+		`,
+			});
 
-    await MimicDB.connect("dart")
-      .collection(Game)
-      .put(
-        new Game({
-          id: this.gameId,
-          goal: this.goal,
-          players: this.players,
-          datetime: new Date(),
-          state: "local",
-          ranked: this.ranked,
-        }),
-        this.gameId
-      );
 
-    this.handleClickRestartGame(true);
+		configCreator.create(this);
 
-    setTimeout(() => {
-      setDialogText("Game saved successfully");
+		await MimicDB.connect('dart')
+			.collection(Game)
+			.put(
+				new Game({
+					id:       this.gameId,
+					goal:     this.goal,
+					players:  this.players,
+					datetime: new Date(),
+					state:    'local',
+					ranked:   this.ranked,
+				}),
+				this.gameId,
+			);
 
-      setTimeout(() => {
-        closeDialog();
-        uploadLocalGames();
-      }, 2000);
-    }, 500);
-  }
+		this.handleClickRestartGame(true);
 
-  protected handlePageKeydown = (ev: KeyboardEvent) => {
-    if (ev.shiftKey && ev.code === "KeyC") {
-      ev.preventDefault();
-      this.handleClickRestartGame();
-    }
+		setTimeout(() => {
+			setDialogText('Game saved successfully');
 
-    if (ev.shiftKey && ev.code === "KeyS") {
-      ev.preventDefault();
-      this.handleClickSubmitGame();
-    }
+			setTimeout(() => {
+				closeDialog();
+				uploadLocalGames();
+			}, 2000);
+		}, 500);
+	}
 
-    if (ev.shiftKey && (ev.key === "?" || ev.key === "+")) {
-      ev.preventDefault();
-      this.handleClickAddPlayer();
-    }
+	protected handlePageKeydown = (ev: KeyboardEvent) => {
+		if (ev.shiftKey && ev.code === 'KeyC') {
+			ev.preventDefault();
+			this.handleClickRestartGame();
+		}
 
-    if (ev.shiftKey && (ev.key === "_" || ev.key === "-")) {
-      ev.preventDefault();
-      this.handleClickRemovePlayer({
-        detail: { index: this.players.length - 1 },
-      });
-    }
-  };
-  //#endregion
+		if (ev.shiftKey && ev.code === 'KeyS') {
+			ev.preventDefault();
+			this.handleClickSubmitGame();
+		}
 
-  //#region Template
-  public override render() {
-    return html`
+		if (ev.shiftKey && (ev.key === '?' || ev.key === '+')) {
+			ev.preventDefault();
+			this.handleClickAddPlayer();
+		}
+
+		if (ev.shiftKey && (ev.key === '_' || ev.key === '-')) {
+			ev.preventDefault();
+			this.handleClickRemovePlayer({
+				detail: { index: this.players.length - 1 },
+			});
+		}
+	};
+	//#endregion
+
+	//#region Template
+	public override render() {
+		return html`
       <div class="page-header">
         <div class="settings">
           <div>Goal:</div>
           <input
-            .value=${this.goal.toString()}
-            @input=${this.handleGoalInput}
+            .value=${ this.goal.toString() }
+            @input=${ this.handleGoalInput }
           />
         </div>
 
@@ -259,21 +262,21 @@ export class DartPlayElement extends LitElement {
         </div>
 
         <div class="actions">
-          <button class="header-action" @click=${this.handleClickRestartGame}>
+          <button class="header-action" @click=${ this.handleClickRestartGame }>
             <mm-icon url="/Dart/trashcan.svg"></mm-icon>
             <span>Reset game</span>
           </button>
 
           <button
             class="header-action"
-            ?disabled=${!this.ranked}
-            @click=${this.handleClickSubmitGame}
+            ?disabled=${ !this.ranked }
+            @click=${ this.handleClickSubmitGame }
           >
             <mm-icon url="/Dart/cloud.svg"></mm-icon>
             <span>Submit game</span>
           </button>
 
-          <button class="header-action" @click=${this.handleClickAddPlayer}>
+          <button class="header-action" @click=${ this.handleClickAddPlayer }>
             <mm-icon url="/Dart/man.svg"></mm-icon>
             <span>Add Player</span>
           </button>
@@ -281,17 +284,17 @@ export class DartPlayElement extends LitElement {
       </div>
 
       <dart-scoreboard
-        .goal=${this.goal}
-        .players=${this.players}
-        @select-player=${() => void this.requestUpdate()}
-        @remove-player=${this.handleClickRemovePlayer}
+        .goal=${ this.goal }
+        .players=${ this.players }
+        @select-player=${ () => void this.requestUpdate() }
+        @remove-player=${ this.handleClickRemovePlayer }
       ></dart-scoreboard>
     `;
-  }
+	}
 
-  public static override styles = [
-    sharedStyles,
-    css`
+	public static override styles = [
+		sharedStyles,
+		css`
       :host {
         overflow: hidden;
         display: grid;
@@ -351,6 +354,7 @@ export class DartPlayElement extends LitElement {
         box-shadow: 0px 0px 3px black;
       }
     `,
-  ];
-  //#endregion
+	];
+	//#endregion
+
 }
