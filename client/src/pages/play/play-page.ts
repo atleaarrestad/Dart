@@ -10,6 +10,7 @@ import { defaultUser, Game, type Player } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
 import { uploadLocalGames } from '../../app/upload-local-games.js';
 import DartScoreboardElement from './scoreboard-element.js';
+import { gameSummaryDialog } from './game-summary-dialog.js';
 
 MMIcon.register();
 MMDialog.register();
@@ -200,6 +201,7 @@ export class DartPlayElement extends LitElement {
 
 		configCreator.create(this);
 
+		var gameId = this.gameId;
 		await MimicDB.connect('dart')
 			.collection(Game)
 			.put(
@@ -216,14 +218,23 @@ export class DartPlayElement extends LitElement {
 
 		this.handleClickRestartGame(true);
 
+		// We use timeouts to prevent flicker feel of the dialog
+		// TODO: A better solution would be a queue based snack / toast
 		setTimeout(() => {
-			setDialogText('Game saved successfully');
-
+			setDialogText('Game saved successfully. Upload in progress...');
 			setTimeout(() => {
-				closeDialog();
-				uploadLocalGames();
-			}, 2000);
-		}, 500);
+				uploadLocalGames().then(gamesWithResults => {
+					setDialogText('Games uploaded');
+					// if the current game was uploaded, display the game summary
+					var gameWithResults = gamesWithResults.find(gwr => gwr.game.id === gameId);
+					if (gameWithResults) {
+						gameSummaryDialog.bind(this.scoreboardEl, gameWithResults.playerResults, this.players)();
+					}
+				}).finally(() => {
+					setTimeout(closeDialog, 2000);
+				});
+			}, 750);
+		}, 750);
 	}
 
 	protected handlePageKeydown = (ev: KeyboardEvent) => {
@@ -275,6 +286,10 @@ export class DartPlayElement extends LitElement {
           <div class="group">
             <span>shift c</span>
             <span>Clear score</span>
+          </div>
+			 <div class="group">
+            <span>shift s</span>
+            <span>Submit game</span>
           </div>
         </div>
 

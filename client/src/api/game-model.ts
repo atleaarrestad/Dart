@@ -10,6 +10,18 @@ export const $GameOut = z.object({
 	})),
 });
 
+export type $PlayerResults = z.infer<typeof $PlayerResults>;
+export const $PlayerResults = z.array(z.object({
+	id:           z.string(),
+	placement:    z.number(),
+	totalScore:   z.number(),
+	averageScore: z.number(),
+	overshoots:   z.optional(z.number()),
+	roundsPlayed: z.number(),
+	hasFinished:  z.boolean(),
+	mmrChange:    z.number(),
+	alias: 		  z.string(),
+}));
 
 export type $GameIn = z.infer<typeof $GameIn>;
 export const $GameIn = z.object({
@@ -20,14 +32,6 @@ export const $GameIn = z.object({
 	rounds:    z.array(z.object({
 		playerScores: z.array(z.number()),
 	})),
-	playerResults: z.array(z.object({
-		id:           z.string(),
-		placement:    z.number(),
-		totalScore:   z.number(),
-		averageScore: z.number(),
-		overshoots:   z.optional(z.number()),
-		roundsPlayed: z.number(),
-		hasFinished:  z.boolean(),
-	})),
+	playerResults: $PlayerResults,
 	winners: z.array(z.any()),
 });
