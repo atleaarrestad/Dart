@@ -20,7 +20,7 @@
     "preview": "vite preview",
     "build": "vite build",
     "updatedeps": "pnpm update --latest --interactive",
-    "typecheck": "tsc --project ./src/tsconfig.json"
+    "typecheck": "tsc --project ./tsconfig.json"
   },
   "dependencies": {
     "@roenlie/mimic-core": "^0.0.88",
@@ -40,8 +40,8 @@
     "@roenlie/package-toolbox": "^1.0.12",
     "@roenlie/tsconfig": "^1.0.5",
     "@types/node": "22.7.7",
-    "@typescript-eslint/eslint-plugin": "^8.10.0",
-    "@typescript-eslint/parser": "^8.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.11.0",
+    "@typescript-eslint/parser": "^8.11.0",
     "dotenv": "^16.4.5",
     "eslint": "^9.13.0",
     "eslint-plugin-import": "^2.31.0",

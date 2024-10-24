@@ -6,10 +6,12 @@ import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 
+import { getUserById } from '../../api/users-api.js';
 import { defaultUser, Game, type Player } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
 import { uploadLocalGames } from '../../app/upload-local-games.js';
 import DartScoreboardElement from './scoreboard-element.js';
+import { gameSummaryDialog } from './game-summary-dialog.js';
 
 MMIcon.register();
 MMDialog.register();
@@ -88,6 +90,11 @@ export class DartPlayElement extends LitElement {
 	}
 
 	protected handleSelectPlayer() {
+		this.sortPlayersByMmr();
+		this.requestUpdate();
+	}
+
+	protected sortPlayersByMmr() {
 		this.players.sort((a, b) => {
 			if (a.user.state === 'online' && b.user.state === 'online')
 				return a.user.mmr - b.user.mmr;
@@ -100,8 +107,6 @@ export class DartPlayElement extends LitElement {
 
 			return 0;
 		});
-
-		this.requestUpdate();
 	}
 
 	protected handleClickRemovePlayer(ev: { detail: { index: number } }) {
@@ -154,6 +159,16 @@ export class DartPlayElement extends LitElement {
 		});
 	}
 
+	protected async refreshMmr() {
+		await Promise.all(this.players.map(async (player) => {
+			var user = await getUserById(player.user.id);
+			if (user)
+				player.user = {...player.user, ...user};
+		}));
+		this.sortPlayersByMmr();
+		this.scoreboardEl.requestUpdate();
+	}
+
 	protected async handleClickSubmitGame() {
 		if (this.players.every((par) => par.round.length <= 2)) {
 			alert('Cannot submit a game with less than 2 rounds played.');
@@ -200,6 +215,7 @@ export class DartPlayElement extends LitElement {
 
 		configCreator.create(this);
 
+		var gameId = this.gameId;
 		await MimicDB.connect('dart')
 			.collection(Game)
 			.put(
@@ -216,14 +232,23 @@ export class DartPlayElement extends LitElement {
 
 		this.handleClickRestartGame(true);
 
+		// We use timeouts to prevent flicker feel of the dialog
+		// TODO: A better solution would be a queue based snack / toast
 		setTimeout(() => {
-			setDialogText('Game saved successfully');
-
+			setDialogText('Game saved successfully. Upload in progress...');
 			setTimeout(() => {
-				closeDialog();
-				uploadLocalGames();
-			}, 2000);
-		}, 500);
+				uploadLocalGames().then(async gamesWithResults => {
+					setDialogText('Games uploaded');
+					await this.refreshMmr();
+					// if the current game was uploaded, display the game summary
+					var gameWithResults = gamesWithResults.find(gwr => gwr.game.id === gameId);
+					if (gameWithResults)
+						gameSummaryDialog.bind(this.scoreboardEl, gameWithResults.playerResults, this.players)();
+				}).finally(() => {
+					setTimeout(closeDialog, 2000);
+				});
+			}, 750);
+		}, 750);
 	}
 
 	protected handlePageKeydown = (ev: KeyboardEvent) => {
@@ -275,6 +300,10 @@ export class DartPlayElement extends LitElement {
           <div class="group">
             <span>shift c</span>
             <span>Clear score</span>
+          </div>
+			 <div class="group">
+            <span>shift s</span>
+            <span>Submit game</span>
           </div>
         </div>
 

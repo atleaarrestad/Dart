@@ -31,3 +31,17 @@ export const $GameIn = z.object({
 	})),
 	winners: z.array(z.any()),
 });
+
+// The existing $GameIn.playerResults object def does not match the data structure for playerResults from 'api/dartgame/add'. Hence new definition.
+export type $PlayerResults = z.infer<typeof $PlayerResults>;
+export const $PlayerResults = z.array(z.object({
+	id:           z.string(),
+	placement:    z.number(),
+	totalScore:   z.number(),
+	averageScore: z.number(),
+	overshoots:   z.optional(z.number()),
+	roundsPlayed: z.number(),
+	hasFinished:  z.boolean(),
+	mmrChange:    z.number(),
+	alias: 		  z.string(),
+}));
