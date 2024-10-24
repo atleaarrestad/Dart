@@ -6,6 +6,7 @@ import { sharedStyles } from '@roenlie/mimic-lit/styles';
 import { css, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 
+import { getUserById } from '../../api/users-api.js';
 import { defaultUser, Game, type Player } from '../../app/client-db.js';
 import { MimicDB } from '../../app/mimic-db.js';
 import { uploadLocalGames } from '../../app/upload-local-games.js';
@@ -89,6 +90,11 @@ export class DartPlayElement extends LitElement {
 	}
 
 	protected handleSelectPlayer() {
+		this.sortPlayersByMmr();
+		this.requestUpdate();
+	}
+
+	protected sortPlayersByMmr() {
 		this.players.sort((a, b) => {
 			if (a.user.state === 'online' && b.user.state === 'online')
 				return a.user.mmr - b.user.mmr;
@@ -101,8 +107,6 @@ export class DartPlayElement extends LitElement {
 
 			return 0;
 		});
-
-		this.requestUpdate();
 	}
 
 	protected handleClickRemovePlayer(ev: { detail: { index: number } }) {
@@ -153,6 +157,16 @@ export class DartPlayElement extends LitElement {
 		setTimeout(() => {
 			this.scoreboardEl.focusListField(0, 0);
 		});
+	}
+
+	protected async refreshMmr() {
+		await Promise.all(this.players.map(async (player) => {
+			var user = await getUserById(player.user.id);
+			if (user)
+				player.user = {...player.user, ...user};
+		}));
+		this.sortPlayersByMmr();
+		this.scoreboardEl.requestUpdate();
 	}
 
 	protected async handleClickSubmitGame() {
@@ -223,13 +237,13 @@ export class DartPlayElement extends LitElement {
 		setTimeout(() => {
 			setDialogText('Game saved successfully. Upload in progress...');
 			setTimeout(() => {
-				uploadLocalGames().then(gamesWithResults => {
+				uploadLocalGames().then(async gamesWithResults => {
 					setDialogText('Games uploaded');
+					await this.refreshMmr();
 					// if the current game was uploaded, display the game summary
 					var gameWithResults = gamesWithResults.find(gwr => gwr.game.id === gameId);
-					if (gameWithResults) {
+					if (gameWithResults)
 						gameSummaryDialog.bind(this.scoreboardEl, gameWithResults.playerResults, this.players)();
-					}
 				}).finally(() => {
 					setTimeout(closeDialog, 2000);
 				});

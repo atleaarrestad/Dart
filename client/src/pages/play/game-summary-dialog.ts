@@ -12,16 +12,18 @@ export function gameSummaryDialog(
   this: DartScoreboardElement,
   playerResults: $PlayerResults,
   players: Player[],
+  onClose?: () => void
 ) {
   const configCreator = new DialogConfig()
 
 const config = configCreator.config({closeOnBlur: true, modal: true}).state().actions((dialog, state) => {
-	const getNewMmr = (playerId: string, mmrChange: number) => {
+	// Assumes that Mmr is updated on the player object already
+	const getMmr = (playerId: string) => {
 		var player = players.find(p => p.user.id === playerId);
 		if (!player)
 			return "n/a";
 
-		return player.user.mmr + mmrChange;
+		return player.user.mmr;
 	};
 
 	const placementSorter = (a: $PlayerResults[number], b: $PlayerResults[number]) => {
@@ -45,17 +47,24 @@ const config = configCreator.config({closeOnBlur: true, modal: true}).state().ac
 	dialog.addEventListener(
 	  "close",
 	  () => {
-		 // Have to change focus to a new element before refocusing.
-		 this.focusListField(0, 0);
-		 // this.focusHeaderField(columnIndex);
+		if(onClose)
+			onClose();
+		this.focusListField(0, 0);
 	  },
 	  { once: true }
 	);
 
+	dialog.addEventListener("keydown", (ev) => {
+		// Close on escape and enter
+		if (ev.key === "Escape" || ev.key === "Enter") {
+			dialog.close();
+		}
+	});
+
 	return {
-	  getNewMmr,
-	  getMmrChangeColorClass,
-	  placementSorter,
+		getMmr,
+	  	getMmrChangeColorClass,
+	  	placementSorter,
 	};
  }).template({
 	initialize: (dialog) => {
@@ -86,7 +95,7 @@ const config = configCreator.config({closeOnBlur: true, modal: true}).state().ac
 				<td>${pr.roundsPlayed}</td>
 				<td>${pr.alias} </td>
 				<td class=${actions.getMmrChangeColorClass(pr.mmrChange)}>${pr.mmrChange}</td>
-				<td>${actions.getNewMmr(pr.id, pr.mmrChange)}</td>
+				<td>${actions.getMmr(pr.id)}</td>
 			</tr>
 			`,
 		) }
